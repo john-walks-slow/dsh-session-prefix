@@ -86,3 +86,20 @@ final badge = ✅
 ```
 
 结论：无额外指令时，模型会按阶段自主维护状态标记。
+
+## 7. npm 发布
+
+- `dsh-session-state@0.1.0` 已发布：`https://registry.npmjs.org/dsh-session-state`，`dist-tags.latest = 0.1.0`，
+  tarball 21.3 kB / 16 个文件。走 `npm-publish` 技能的指纹流程
+  （`scripts/publish-webauthn.cjs`，passkey 确认后 PUT 成功打印 `PUBLISHED_OK`）。
+- **踩坑（极易误判）**：新包首次发布时 registry 会先建一个 `0.0.0-stage` 占位版本
+  （description 就是 “Temporary package placeholder for staged publishing”，带 `stub` 字段），
+  且此时 `versions` 只有它、`dist-tags.latest` 也指向它。索引延迟期间查询会看到这幅景象，
+  容易误判成「发布没成功 / 被 staged 卡住」。`npm stage list` 此时为空（不是 staged pending）。
+  正确做法：**轮询到真实版本出现**（实测约 2~3 分钟后 `versions` 变成 `['0.0.0-stage', '0.1.0']`、
+  `latest = 0.1.0`）。stub 会长期留在 `versions` 里，不影响安装。
+- 隔离验证（scratch profile，验完即删）：`dsh plugin --profile npmcheck add dsh-session-state` 成功，
+  `--dump-config` 出现 `- id: session-state / name: dsh-session-state` layer，
+  `import('dsh-session-state')` 得到 `apply: function`、`inject: ["tools"]` —— 运行时依赖由宿主 module
+  fallback 解析，无需自带 `@deepseek-ai/*`。
+- 线上 profile 仍是 `link:/root/projects/dsh-session-state`（发布不需要、也不应该把线上切到 registry 版本）。
