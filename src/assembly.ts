@@ -1,7 +1,7 @@
 /**
  * 按当前设置装配工具表：
  * - `enabled: false` 时不注册 `session_state`（模型不可见）；
- * - 状态预设列表、默认状态、自定义前缀开关或自定义指令发生任何变化时，在 `turn/start` 重新注册工具，
+ * - 状态预设列表、默认状态或自定义指令发生任何变化时，在 `turn/start` 重新注册工具，
  *   让最新的状态清单与指令在下一个回合立即生效。
  */
 import type { Context } from "@deepseek-ai/cordis";
@@ -15,9 +15,7 @@ export interface Registration {
   readonly dispose: () => void;
 }
 
-/**
- * 把宿主工具表对齐到当前设置快照。
- */
+/** 把宿主工具表对齐到当前设置快照。 */
 export function syncTools(
   ctx: Context,
   tracker: StateTracker,
@@ -33,7 +31,6 @@ export function syncTools(
   const definition = stateToolDefinition(ctx, tracker, settings, config);
   const signature = JSON.stringify({
     description: definition.description,
-    allowCustomPrefix: settings.allowCustomPrefix,
     defaultState: settings.defaultState,
     states: settings.states,
   });

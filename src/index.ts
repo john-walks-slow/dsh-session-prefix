@@ -49,20 +49,22 @@ export function apply(ctx: Context, config?: SettingsConfig): () => void {
       ) => {
         if (event.type === "turn/start") {
           syncTools(ctx, tracker, readSettings(config), registered, config);
-        } else if (event.type === "session/title" && event.data !== undefined && event.data !== null) {
+          return;
+        }
+        if (event.type !== "session/title" || event.data === undefined || event.data === null) return;
+        // 宿主在 `Session.append` 的发布过程中同步派发 session/event，而 append 有重入守卫
+        // （"session append cannot reenter while another append is being published"），
+        // 所以写回推迟到 microtask：那时本次 append 已经收尾。
+        const payload = event.data as SessionTitleEventPayload;
+        queueMicrotask(() => {
           try {
-            handleAutoSessionTitleEvent(
-              session,
-              event.data as SessionTitleEventPayload,
-              tracker,
-              readSettings(config),
-            );
+            handleAutoSessionTitleEvent(session, payload, tracker, readSettings(config));
           } catch (error) {
             ctx.logger.warn(
               `dsh-session-state: failed to apply state prefix on session/title for ${session.id}: ${String(error)}`,
             );
           }
-        }
+        });
       },
     ),
   );

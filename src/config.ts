@@ -1,25 +1,26 @@
 /**
- * 插件设置：工具开关、新会话默认状态、是否允许自由前缀、自定义指令、以及状态预设表。
+ * 插件设置：工具开关、新会话默认状态、自定义指令、以及状态预设表。
  *
  * 所有顶层字段均标记 `.volatile()`，以便 Web 设置页（`dsh-settings`）投影并即时写回运行中的配置引用。
  * 工具表描述在每个 `turn/start` 前按最新设置快照对齐（见 `assembly.ts`）。
+ *
+ * 输入面刻意只有状态 `key` 一种形态：用户命令与模型工具都只接受 key（外加 `none` / `clear`），
+ * 名称与前缀只用于展示，避免同一件事有多种写法。
  */
 import z from "@deepseek-ai/schemastery";
 
 /** 一段自定义指令的长度上限（码点）。 */
 export const INSTRUCTION_LIMIT = 2000;
 
-/** 单个状态前缀的长度上限（码点）。 */
+/** 状态前缀 / key / 名称 / 说明的长度上限（码点）。 */
 export const PREFIX_LIMIT = 16;
-
-/** 状态 key / 名称 / 说明的长度上限（码点）。 */
 export const KEY_LIMIT = 32;
 export const LABEL_LIMIT = 40;
 export const DESCRIPTION_LIMIT = 160;
 
 /** 一条状态预设。 */
 export interface StatePreset {
-  /** 稳定标识（小写字母/数字/连字符/下划线），如 `"wip"`、`"done"`。 */
+  /** 稳定标识（小写字母/数字/连字符/下划线），用户与模型都用它选状态，如 `"wip"`、`"done"`。 */
   readonly key: string;
   /** 标题前缀（emoji 或短文本），如 `"🚧"`、`"[WIP]"`。 */
   readonly prefix: string;
@@ -82,7 +83,6 @@ const StatePresetSchema = z.object({
 export const Config = z.object({
   enabled: z.boolean().default(true).volatile(),
   defaultState: z.string().default("wip").volatile(),
-  allowCustomPrefix: z.boolean().default(false).volatile(),
   instructions: z.string().default("").volatile(),
   states: z
     .array(StatePresetSchema)
@@ -95,7 +95,6 @@ export interface SettingsSnapshot {
   readonly enabled: boolean;
   /** 新会话默认状态 key；`"none"` 表示不自动添加状态前缀。 */
   readonly defaultState: string;
-  readonly allowCustomPrefix: boolean;
   readonly instructions: string;
   readonly states: readonly StatePreset[];
 }
@@ -108,25 +107,17 @@ interface VolatileLike<T> {
 export interface SettingsConfig {
   readonly enabled?: VolatileLike<boolean>;
   readonly defaultState?: VolatileLike<string>;
-  readonly allowCustomPrefix?: VolatileLike<boolean>;
   readonly instructions?: VolatileLike<string>;
-  readonly states?: VolatileLike< readonly StatePreset[]>;
+  readonly states?: VolatileLike<readonly StatePreset[]>;
 }
 
-/**
- * 从运行中的配置引用读一份归一化快照。
- */
+/** 从运行中的配置引用读一份归一化快照。 */
 export function readSettings(config: SettingsConfig | undefined): SettingsSnapshot {
-  const enabled = config?.enabled?.get() !== false;
-  const allowCustomPrefix = config?.allowCustomPrefix?.get() === true;
-  const instructions = sanitizeInstruction(config?.instructions?.get());
   const states = sanitizeStates(config?.states?.get());
-  const defaultState = sanitizeDefaultState(config?.defaultState?.get(), states);
   return {
-    enabled,
-    defaultState,
-    allowCustomPrefix,
-    instructions,
+    enabled: config?.enabled?.get() !== false,
+    defaultState: sanitizeDefaultState(config?.defaultState?.get(), states),
+    instructions: sanitizeInstruction(config?.instructions?.get()),
     states,
   };
 }
@@ -144,7 +135,7 @@ export function sanitizeStates(raw: unknown): readonly StatePreset[] {
     const key = sanitizeKey(candidate.key);
     const prefix = sanitizePrefix(candidate.prefix);
     if (key.length === 0 || prefix.length === 0) continue;
-    if ( isClearKeyword(key) || seenKeys.has(key)) continue;
+    if (isClearKeyword(key) || seenKeys.has(key)) continue;
     seenKeys.add(key);
     const label = sanitizeSingleLine(candidate.label, LABEL_LIMIT) || key;
     const description = sanitizeSingleLine(candidate.description, DESCRIPTION_LIMIT);
@@ -154,22 +145,17 @@ export function sanitizeStates(raw: unknown): readonly StatePreset[] {
 }
 
 /**
- * 归一化新会话默认状态：允许 `"none"` 或匹配状态表中的任意项（按 key/label/prefix），无法识别时若 `"wip"` 存在则取 `"wip"`，否则 `"none"`。
+ * 归一化新会话默认状态：只认状态 key（不区分大小写）或 `"none"`；
+ * 无法识别时回落到 `"wip"`（若存在），否则 `"none"`。
  */
 export function sanitizeDefaultState(raw: unknown, states: readonly StatePreset[]): string {
-  if (typeof raw !== "string") {
-    return states.some((item) => item.key === "wip") ? "wip" : "none";
-  }
+  const fallback = states.some((item) => item.key === "wip") ? "wip" : "none";
+  if (typeof raw !== "string") return fallback;
   const trimmed = raw.trim();
   if (trimmed.length === 0 || isClearKeyword(trimmed)) return "none";
   const lower = trimmed.toLowerCase();
-  const matched = states.find(
-    (item) =>
-      item.key.toLowerCase() === lower ||
-      item.label.toLowerCase() === lower ||
-      item.prefix === trimmed,
-  );
-  return matched ? matched.key : "none";
+  const matched = states.find((item) => item.key.toLowerCase() === lower);
+  return matched ? matched.key : fallback;
 }
 
 /** 判断输入是否为清除/无状态关键字。 */
@@ -205,13 +191,10 @@ export function sanitizeSingleLine(raw: unknown, limit: number): string {
     .replace(/[\u0000-\u001F\u007F-\u009F]+/gu, " ")
     .replace(/\s+/gu, " ")
     .trim();
-  const points = [...cleaned];
-  return points.length <= limit ? cleaned : `${points.slice(0, limit).join("")}`;
+  return [...cleaned].slice(0, limit).join("");
 }
 
-/**
- * 指令文本整形：折叠控制符/空行、去首尾空白、按码点截断。
- */
+/** 指令文本整形：折叠控制符/空行、去首尾空白、按码点截断。 */
 export function sanitizeInstruction(raw: unknown): string {
   if (typeof raw !== "string") return "";
   const flat = raw

@@ -6,9 +6,9 @@ Mark DeepSeek Harness session states using customizable title prefixes (Emoji or
 
 Features:
 - **Default state for new sessions**: Automatically prefixes newly titled sessions with your chosen default state (defaults to `wip` `🚧`, or choose any state / `none`), without interrupting background LLM title generation;
-- **Agent tool `session_state`**: Lets the agent update the session's state badge as task phases change;
-- **User command `/state`**: View, switch, or clear the current session's state prefix at any time;
-- **Web Settings panel ("会话状态")**: Add, edit, or remove custom states (prefix, key, label, description), pick the default state for new sessions, toggle the model tool, and configure custom operator instructions;
+- **Agent tool `session_state`**: Lets the agent set a session's state by key as task phases change;
+- **User command `/state`**: View, switch, or clear the current session's state prefix by key at any time;
+- **Web Settings panel ("会话状态")**: Add, edit, or remove custom states (key, prefix, label, description), pick the default state for new sessions, toggle the model tool, and configure custom operator instructions;
 - **Sidebar search filtering**: Type any state badge (e.g. `🚧`, `✅`, `👀`) into the native DSH sidebar search box to filter sessions by state immediately.
 
 ## Default State Presets
@@ -27,11 +27,13 @@ Features:
 
 ```text
 /state              # Inspect current session state, title, default state, and available presets
-/state wip          # Set state to "🚧 进行中" (accepts key, label, or prefix)
+/state wip          # Set state to "🚧 进行中"
 /state review       # Switch to "👀 待验收" (existing prefixes are stripped automatically)
 /state done         # Switch to "✅ 已完成"
-/state clear        # Remove the state prefix (alias: /state none)
+/state none         # Remove the state prefix (alias: /state clear)
 ```
+
+States are selected by **key** only (`wip`, `review`, `done`, …); labels and prefixes are display-only and are not accepted as input.
 
 ## Development
 

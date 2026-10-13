@@ -32,8 +32,8 @@ export function registerStateCommand(
   return commands.register({
     name: "state",
     description:
-      "Set, inspect, or clear this session's visual state prefix on its title (e.g. /state wip, /state done, /state clear, or /state to view).",
-    input: { hint: "[<state> | clear | list]" },
+      "Set, inspect, or clear this session's visual state prefix on its title by state key (e.g. /state wip, /state done, /state none, or /state to view).",
+    input: { hint: "[<key> | none | list]" },
     handler(invocation): CommandResult {
       const settings = readSettings(config);
       const sessionId = invocation.agent.session.id;
@@ -42,7 +42,7 @@ export function registerStateCommand(
 
       if (raw.length === 0 || raw.toLowerCase() === "list") {
         try {
-          const info = inspectSessionState(agentCtx, sessionId, settings, tracker);
+          const info = inspectSessionState(agentCtx, sessionId, settings);
           const currentDesc =
             info.state === null
               ? "none (no state prefix)"
@@ -63,7 +63,7 @@ export function registerStateCommand(
             text:
               `Current state: ${currentDesc}. Title: "${info.fullTitle || "(untitled)"}". ` +
               `Default for new sessions: ${defaultDesc}. ` +
-              `Available states: ${catalog}. Use /state <key|label|prefix> to set, or /state clear to remove.`,
+              `Available state keys: ${catalog}. Use /state <key> to set, or /state none to remove.`,
           };
         } catch (error) {
           return { kind: "error", text: `state: ${messageOf(error)}` };

@@ -3,6 +3,7 @@
  *
  * 工具描述与参数说明根据当前 `SettingsSnapshot` 动态构建，确保用户在 Web 设置页修改状态预设、
  * 默认状态或自定义指令后，下一个回合的模型提示词立即反映最新状态表。
+ * 输入面只有状态 `key`（外加 `"none"` / `"clear"`），名称与前缀仅供模型识别，不作为入参。
  */
 import type { Context } from "@deepseek-ai/cordis";
 import type { ContentBlock } from "@deepseek-ai/dsh-llm";
@@ -37,13 +38,13 @@ export function text(body: string): ContentBlock[] {
   return [{ type: "text", text: body }];
 }
 
-/** 构造状态预设的说明文本（用于工具描述与参数描述）。 */
+/** 状态预设的说明文本（列在工具描述里，供模型选 key）。 */
 export function buildStateCatalogText(settings: SettingsSnapshot): string {
   const lines = settings.states.map((item) => {
     const desc = item.description.length > 0 ? ` — ${item.description}` : "";
     return `- "${item.key}" (${item.prefix} ${item.label})${desc}`;
   });
-  lines.push('- "none" / "clear" — Remove the state prefix and keep the plain title');
+  lines.push('- "none" — Remove the state prefix and keep the plain title');
   return lines.join("\n");
 }
 
@@ -54,23 +55,17 @@ export function stateToolDefinition(
   settings: SettingsSnapshot,
   config?: SettingsConfig,
 ): ToolDefinition {
-  const keysList = settings.states.map((item) => `"${item.key}" (${item.prefix})`).join(", ");
-  const customNote = settings.allowCustomPrefix
-    ? " A custom badge prefix is also allowed when no preset matches."
-    : "";
+  const keysList = settings.states.map((item) => `"${item.key}"`).join(", ");
   const defaultNote =
     settings.defaultState === "none"
       ? "New sessions have no automatic default state."
-      : `New sessions start with default state "${settings.defaultState}".`;
-
-  const stateParamDescription =
-    `Target state key, label, or prefix (${keysList}), or "none" / "clear" to strip the state prefix.${customNote}`;
+      : `New sessions start in state "${settings.defaultState}".`;
 
   const parameters = {
     state: {
       type: "string",
       required: true,
-      description: stateParamDescription,
+      description: `State key, one of: ${keysList}, or "none" to strip the state prefix.`,
     },
     session_id: {
       type: "string",

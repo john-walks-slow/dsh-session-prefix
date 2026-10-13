@@ -63,25 +63,24 @@
 ### 3.2 路径一：用户使用 `/state` 命令
 - **`/state` 或 `/state list`**（无参数或 `list`）：
   显示当前会话所处状态、当前完整标题与裸标题、当前配置的新会话默认状态，并列出所有可用状态及用法示例。
-- **`/state <state>`**（支持传 `key`、`label` 或 `prefix`，例如 `/state wip`、`/state 进行中`、`/state 🚧`）：
-  立即将当前会话标题前缀切换为对应状态，回执：`Updated session state to 🚧 进行中 ("🚧 修复登录问题").`
-- **`/state clear` 或 `/state none`**：
-  移除当前会话标题的状态前缀，回执：`Cleared session state ("修复登录问题").`
-- 当启用 `allowCustomPrefix` 时，传入未预定义的短前缀（如 `/state 🔥` 或 `/state [紧急]`）可直接作为自定义前缀应用。
+- **`/state <key>`**（只认状态 key，例如 `/state wip`、`/state review`、`/state done`）：
+  立即将当前会话标题前缀切换为对应状态，回执：`Updated session state to 👀 待验收 ("👀 修复登录问题").`
+- **`/state none` 或 `/state clear`**：
+  移除当前会话标题的状态前缀，回执：`Cleared session state prefix; title is now "修复登录问题".`
+- 名称（`label`）与前缀（`prefix`）只用于展示与拼接，**不作为入参**，避免同一件事有多种写法。
 
 ### 3.3 路径二：Agent 调用 `session_state` 工具
 - 工具名：`session_state`
 - 参数：
-  - `state` (`string`, 必填)：目标状态的 `key`（如 `"wip"`, `"blocked"`, `"review"`, `"done"`, `"plan"`, `"bug"`）或 `"none"` / `"clear"` 清除状态。参数描述会根据当前设置动态生成可用状态清单。
+  - `state` (`string`, 必填)：状态 key（如 `"wip"`, `"blocked"`, `"review"`, `"done"`, `"plan"`, `"bug"`），或 `"none"` / `"clear"` 清除状态。参数描述会根据当前设置动态生成可用状态 key 清单。
   - `session_id` (`string`, 可选)：目标会话 ID，省略时作用于当前会话（仅限 live 会话）。
 
 ### 3.4 路径三：Web 插件设置页（「会话状态」）
 在设置面板挂载 `settings.section`（entry id: `session-state`，标签：`会话状态`）：
 1. **工具开关（`enabled`）**：启用/禁用 `session_state` 模型工具。
 2. **新会话默认状态（`defaultState`）**：下拉选择框，选项包括 `none（不自动标记）` 以及当前状态列表中所有状态（默认选中 `wip — 🚧 进行中`）。
-3. **自定义前缀开关（`allowCustomPrefix`）**：是否允许命令/工具使用预设列表之外的自由前缀（默认 `false`）。
-4. **工具自定义指令（`instructions`）**：追加到 `session_state` 描述尾部的 `Operator instructions for this tool`，最多 2000 字。
-5. **状态预设列表编辑器（`states`）**：
+3. **工具自定义指令（`instructions`）**：追加到 `session_state` 描述尾部的 `Operator instructions for this tool`，最多 2000 字。
+4. **状态预设列表编辑器（`states`）**：
    - 可视化列表展示每一项的 `前缀 (prefix)`、`键值 (key)`、`名称 (label)`、`说明 (description)`；
    - 支持直接修改任意状态的 emoji/文字前缀、名称与说明；
    - 支持**新增状态**、**删除状态**、**一键恢复默认状态集**。
@@ -102,7 +101,7 @@ dsh-session-state/
 │   └── build-client.mjs      # esbuild 打包 src/client/index.ts -> lib/client.js（id: "dsh-session-state"）
 ├── src/
 │   ├── index.ts              # 插件入口：inject=["tools"]，装配工具、命令、turn/start 同步与 session/title 默认状态挂钩
-│   ├── config.ts             # Volatile Config 定义（enabled, defaultState, allowCustomPrefix, instructions, states）
+│   ├── config.ts             # Volatile Config 定义（enabled, defaultState, instructions, states）
 │   ├── state.ts              # 核心领域逻辑：标题前缀解析、剥离、替换、自动标题挂载默认状态与 rename 调用
 │   ├── tools.ts              # defineTool("session_state") 定义，动态拼接状态表与自定义指令
 │   ├── assembly.ts           # turn/start 工具表对齐（syncTools / disposeTools）

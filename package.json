@@ -25,7 +25,8 @@
     "prepare": "npm run build",
     "prepublishOnly": "npm run check",
     "release": "npm run test && npm version patch && npm pack --pack-destination /tmp",
-    "build:client": "node scripts/build-client.mjs && node --check lib/client.js"
+    "build:client": "node scripts/build-client.mjs && node --check lib/client.js",
+    "e2e:state": "dsh-e2e run e2e/session-state.mjs"
   },
   "dsh": {
     "bundle": {

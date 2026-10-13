@@ -18,7 +18,6 @@ export interface ClientStatePreset {
 export interface SessionStateSettings {
   enabled: boolean;
   defaultState: string;
-  allowCustomPrefix: boolean;
   instructions: string;
   states: ClientStatePreset[];
 }
@@ -179,7 +178,7 @@ export function SessionStatePanel(props: SessionStatePanelProps): React.ReactEle
     React.createElement(
       "p",
       { className: "dss-note" },
-      "用会话标题前缀标记项目状态（纯视觉区分，无其他行为副作用）。在侧边栏搜索框输入任意状态 Emoji（如 🚧、✅）即可即时筛选对应状态的会话。",
+      "用会话标题前缀标记项目状态（纯视觉区分，无其他行为副作用）。用户与 Agent 都只按状态 key 选择（如 /state wip）。在侧边栏搜索框输入任意状态 Emoji（如 🚧、✅）即可即时筛选对应状态的会话。",
     ),
     // 卡片 1：新会话默认状态 & 自由前缀
     React.createElement(
@@ -228,34 +227,6 @@ export function SessionStatePanel(props: SessionStatePanelProps): React.ReactEle
         "p",
         { className: "dss-hint" },
         "新会话首次自动生成标题时自动冠上该状态前缀（默认 wip 🚧），且不会打断后台 LLM 自动生成标题。",
-      ),
-      React.createElement(
-        "div",
-        { className: "dss-row" },
-        React.createElement(
-          "label",
-          { className: "dss-switch" },
-          React.createElement("input", {
-            type: "checkbox",
-            checked: value.allowCustomPrefix === true,
-            disabled: !writable || busy,
-            onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
-              void saveField("allowCustomPrefix", event.target.checked),
-          }),
-          React.createElement("span", { className: "dss-title" }, "允许预设列表外的自定义前缀"),
-        ),
-        overridden("allowCustomPrefix")
-          ? React.createElement(
-              "button",
-              {
-                type: "button",
-                className: "dss-reset",
-                disabled: !writable || busy,
-                onClick: () => void resetField("allowCustomPrefix"),
-              },
-              "恢复默认",
-            )
-          : null,
       ),
     ),
     // 卡片 2：模型工具开关与自定义指令

@@ -1,0 +1,29 @@
+# dsh-session-state e2e 用户 patch 层：给最小 profile 补 cpa provider 适配器。
+#
+# 最小 e2e profile（dsh-base + dsh-web-app + 本插件）里 `llm-pi-ai` 没有 cpa 适配器，
+# 模型调用会以 NO_ADAPTER 结束（"no adapter registered for provider cpa"），e2e 的每个回合
+# 都会立刻失败。baseURL / apiKeyEnv 对齐线上 profile 的 cpa 网关配置。
+# 最小 profile 的默认模型来自 dsh-base 的 `deepseek-official/deepseek-flash`（没有 API key，
+# 每个回合都会以 MISSING_CREDENTIAL 结束）。这里把默认路由钉到本地 cpa 网关。
+# 注意 `$DSH_HOME/settings.yaml` 里的同名设置不会生效：settings 服务导入后落成
+# `settings.yaml.imported`，而 agent-default-model 读的是配置层。
+- id: agent-default-model
+  name: "@deepseek-ai/dsh-agent-default-model"
+  config:
+    provider: cpa
+    model: omni
+
+- id: llm-pi-ai
+  name: "@deepseek-ai/dsh-llm-pi-ai"
+  config:
+    providers:
+      cpa:
+        apiKeyEnv: CPA_API_KEY
+        api: openai-completions
+        baseURL: http://127.0.0.1:9999/v1
+        streamIdleTimeoutMs: 180000
+        defaultMaxTokens: 32000
+        models:
+          - id: omni
+          - id: medium
+          - id: lite
