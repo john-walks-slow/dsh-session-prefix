@@ -13,7 +13,11 @@
 
 ## 安装
 
-从 GitHub 直接安装（源码安装，会执行本仓库的 `prepare` 构建）：
+```bash
+dsh plugin --profile web add dsh-session-state
+```
+
+从 GitHub 安装（源码安装，会执行本仓库的 `prepare` 构建）：
 
 ```bash
 dsh plugin --profile web add github:john-walks-slow/dsh-session-state
@@ -28,6 +32,12 @@ dsh plugin --profile web add link:/path/to/dsh-session-state
 安装后无需手工改配置：插件自带的 `cordis.patch.yml` 自动挂载生效，模型工具表里多出 `session_state`，命令表里多出 `/state`，设置页里多出「会话状态」。
 
 > 源码安装需要 Node ≥ 22.5，并在安装时执行构建（`tsc` + `esbuild`，产出 `dist/` 与 `lib/client.js`）。pnpm ≥ 10 需放行该构建（`pnpm approve-builds`，或在 `onlyBuiltDependencies` 中加入本包）。
+
+## 界面
+
+![不同状态的会话在侧边栏中的样子](assets/screenshot-1-session-states.png)
+
+![「会话状态」设置页](assets/screenshot-2-settings.png)
 
 ## 权限与兼容
 

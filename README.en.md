@@ -13,6 +13,10 @@ Features:
 
 ## Install
 
+```bash
+dsh plugin --profile web add dsh-session-state
+```
+
 From GitHub (source install — runs this repository's `prepare` build):
 
 ```bash
@@ -28,6 +32,12 @@ dsh plugin --profile web add link:/path/to/dsh-session-state
 No manual configuration is needed: the bundled `cordis.patch.yml` mounts automatically — the model tool table gains `session_state`, the command table gains `/state`, and Settings gains the "会话状态" page.
 
 > A source install needs Node ≥ 22.5 and runs the build (`tsc` + `esbuild`, producing `dist/` and `lib/client.js`). On pnpm ≥ 10, allow that build (`pnpm approve-builds`, or add this package to `onlyBuiltDependencies`).
+
+## Screenshots
+
+![Sessions in different states in the sidebar](assets/screenshot-1-session-states.png)
+
+![The "会话状态" settings page](assets/screenshot-2-settings.png)
 
 ## Permissions and compatibility
 

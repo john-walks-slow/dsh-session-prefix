@@ -26,7 +26,9 @@
     "prepublishOnly": "npm run check",
     "release": "npm run test && npm version patch && npm pack --pack-destination /tmp",
     "build:client": "node scripts/build-client.mjs && node --check lib/client.js",
-    "e2e:state": "dsh-e2e run e2e/session-state.mjs"
+    "e2e:state": "dsh-e2e run e2e/session-state.mjs",
+    "e2e:screenshots": "dsh-e2e run e2e/screenshots.mjs",
+    "e2e:autonomy": "dsh-e2e run e2e/autonomy-probe.mjs"
   },
   "dsh": {
     "bundle": {

@@ -13,6 +13,7 @@ import { promisify } from "node:util";
 const PLAYWRIGHT = process.env.DSH_E2E_PLAYWRIGHT || "/root/projects/camoufox-mcp/node_modules/playwright-core/index.js";
 const FIREFOX_BIN = process.env.DSH_E2E_FIREFOX_BIN || "/root/.cache/camoufox/camoufox-bin";
 const { default: pw } = await import(PLAYWRIGHT);
+import { dismissStartupOverlays } from "./lib/overlays.mjs";
 
 const execFileP = promisify(execFile);
 const HOME = process.env.DSH_E2E_HOME || "/root/.dsh-e2e";
@@ -91,15 +92,8 @@ const browser = await pw.firefox.launch({ executablePath: FIREFOX_BIN, headless:
 const page = await browser.newPage();
 try {
   await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
-  await page.waitForTimeout(3000);
-  for (let round = 0; round < 8; round++) {
-    if ((await page.locator('[class*="_mask_"]').count()) === 0) break;
-    for (const name of ["Configure later", "Continue"]) {
-      const button = page.getByRole("button", { name, exact: true });
-      if ((await button.count()) > 0) await button.first().click({ timeout: 5000 }).catch(() => undefined);
-    }
-    await page.waitForTimeout(1200);
-  }
+  await page.waitForTimeout(1500);
+  await dismissStartupOverlays(page);
 
   const composer = page.locator('[contenteditable="true"]').first();
   await composer.waitFor({ state: "visible", timeout: 20000 });
