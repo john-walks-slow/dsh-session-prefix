@@ -13,7 +13,12 @@
 import { execFile } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { promisify } from "node:util";
-import pw from "/root/projects/camoufox-mcp/node_modules/playwright-core/index.js";
+
+// The browser used to drive the GUI is host-specific; both knobs exist so this script
+// stays runnable outside the machine it was written on.
+const PLAYWRIGHT = process.env.DSH_E2E_PLAYWRIGHT || "/root/projects/camoufox-mcp/node_modules/playwright-core/index.js";
+const FIREFOX_BIN = process.env.DSH_E2E_FIREFOX_BIN || "/root/.cache/camoufox/camoufox-bin";
+const { default: pw } = await import(PLAYWRIGHT);
 
 const execFileP = promisify(execFile);
 const HOME = process.env.DSH_E2E_HOME || "/root/.dsh-e2e";
@@ -112,7 +117,7 @@ if (!E2E_PORT) {
 }
 const url = `http://127.0.0.1:${E2E_PORT}/?token=${process.env.DSH_E2E_TOKEN || "e2etest"}`;
 
-const browser = await pw.firefox.launch({ executablePath: "/root/.cache/camoufox/camoufox-bin", headless: true });
+const browser = await pw.firefox.launch({ executablePath: FIREFOX_BIN, headless: true });
 const page = await browser.newPage();
 let exitCode = 0;
 try {

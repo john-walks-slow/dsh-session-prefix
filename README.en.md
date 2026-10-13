@@ -11,6 +11,30 @@ Features:
 - **Web Settings panel ("会话状态")**: Add, edit, or remove custom states (key, prefix, label, description), pick the default state for new sessions, toggle the model tool, and configure custom operator instructions;
 - **Sidebar search filtering**: Type any state badge (e.g. `🚧`, `✅`, `👀`) into the native DSH sidebar search box to filter sessions by state immediately.
 
+## Install
+
+From GitHub (source install — runs this repository's `prepare` build):
+
+```bash
+dsh plugin --profile web add github:john-walks-slow/dsh-session-state
+```
+
+From a local checkout:
+
+```bash
+dsh plugin --profile web add link:/path/to/dsh-session-state
+```
+
+No manual configuration is needed: the bundled `cordis.patch.yml` mounts automatically — the model tool table gains `session_state`, the command table gains `/state`, and Settings gains the "会话状态" page.
+
+> A source install needs Node ≥ 22.5 and runs the build (`tsc` + `esbuild`, producing `dist/` and `lib/client.js`). On pnpm ≥ 10, allow that build (`pnpm approve-builds`, or add this package to `onlyBuiltDependencies`).
+
+## Permissions and compatibility
+
+- **No network, no local file access, no external services.** The only write is appending one `session/title` event to the target session's own log (the host's own rename path).
+- Only acts on **live** sessions in the current process (your own, or one open in the GUI); it never resumes a cold session.
+- Requires a dsh host that provides the `sessionTitle` service (`@deepseek-ai/dsh-base` ships it). Without a `commands` service, `/state` is not registered and everything else keeps working.
+
 ## Default State Presets
 
 | Key | Default Prefix | Label | Description |

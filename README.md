@@ -11,6 +11,30 @@
 - **Web 插件设置页（「会话状态」）**：可视化增删改状态列表（自定义 Emoji 或文本前缀、Key、名称、说明）、选择新会话默认状态、开关模型工具并编写自定义 `Operator instructions`；
 - **原生侧边栏搜索筛选**：在 DSH 侧边栏搜索框输入任意状态前缀（如 `🚧`、`✅`、`👀`），即可即时筛选出对应状态的所有会话。
 
+## 安装
+
+从 GitHub 直接安装（源码安装，会执行本仓库的 `prepare` 构建）：
+
+```bash
+dsh plugin --profile web add github:john-walks-slow/dsh-session-state
+```
+
+本地开发目录直链：
+
+```bash
+dsh plugin --profile web add link:/path/to/dsh-session-state
+```
+
+安装后无需手工改配置：插件自带的 `cordis.patch.yml` 自动挂载生效，模型工具表里多出 `session_state`，命令表里多出 `/state`，设置页里多出「会话状态」。
+
+> 源码安装需要 Node ≥ 22.5，并在安装时执行构建（`tsc` + `esbuild`，产出 `dist/` 与 `lib/client.js`）。pnpm ≥ 10 需放行该构建（`pnpm approve-builds`，或在 `onlyBuiltDependencies` 中加入本包）。
+
+## 权限与兼容
+
+- **不联网、不读写本机文件、不调用任何外部服务**。唯一的写入是往目标会话日志追加一条 `session/title` 事件（宿主自己的改名路径）。
+- 只作用于当前进程内 **live** 的会话（你自己，或 GUI 里打开着的会话）；不会为冷会话拉起 agent。
+- 需要提供 `sessionTitle` 服务的 dsh 宿主（`@deepseek-ai/dsh-base` 自带）。宿主没有 `commands` 服务时 `/state` 不注册，其余功能照常。
+
 ## 默认状态预设
 
 | Key | 默认前缀 | 名称 | 说明 |
