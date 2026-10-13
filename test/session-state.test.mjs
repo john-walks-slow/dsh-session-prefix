@@ -176,6 +176,9 @@ test("session_state tool sets, replaces (without stacking), and clears state pre
   const tool = host.tools.get("session_state");
   assert.ok(tool, "session_state tool should be registered");
   assert.match(tool.description, /"wip" \(🚧 进行中\)/);
+  // 没有自定义指令时，默认描述本身就要把「自主维护」写成明确预期
+  assert.match(tool.description, /Maintain it on your own initiative/);
+  assert.match(tool.description, /New sessions already start in state "wip"/);
 
   const exec = { agent: { session } };
 
@@ -309,7 +312,7 @@ test("volatile settings hot-reload the tool on turn/start", async () => {
   host.emit("session/event", session, { type: "turn/start" });
   const updatedTool = host.tools.get("session_state");
   assert.match(updatedTool.description, /"coding" \(⚡ 编码中\)/);
-  assert.match(updatedTool.description, /New sessions start in state "coding"/);
+  assert.match(updatedTool.description, /New sessions already start in state "coding"/);
   assert.match(updatedTool.description, /Operator instructions for this tool:\n完成任务后务必改为 done/);
 
   // 新配置生效后，旧 key 不再可用

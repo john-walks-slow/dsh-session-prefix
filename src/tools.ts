@@ -38,13 +38,13 @@ export function text(body: string): ContentBlock[] {
   return [{ type: "text", text: body }];
 }
 
-/** 状态预设的说明文本（列在工具描述里，供模型选 key）。 */
+/** 状态预设的说明文本（列在工具描述里，供模型选 key 与判断时机）。 */
 export function buildStateCatalogText(settings: SettingsSnapshot): string {
   const lines = settings.states.map((item) => {
     const desc = item.description.length > 0 ? ` — ${item.description}` : "";
     return `- "${item.key}" (${item.prefix} ${item.label})${desc}`;
   });
-  lines.push('- "none" — Remove the state prefix and keep the plain title');
+  lines.push('- "none" — Remove the state badge (the title keeps its plain text)');
   return lines.join("\n");
 }
 
@@ -58,8 +58,8 @@ export function stateToolDefinition(
   const keysList = settings.states.map((item) => `"${item.key}"`).join(", ");
   const defaultNote =
     settings.defaultState === "none"
-      ? "New sessions have no automatic default state."
-      : `New sessions start in state "${settings.defaultState}".`;
+      ? "New sessions start with no state badge."
+      : `New sessions already start in state "${settings.defaultState}" — do not set it again, just move it forward when the phase changes.`;
 
   const parameters = {
     state: {
@@ -75,11 +75,16 @@ export function stateToolDefinition(
     },
   } satisfies ParameterSchemaSpec;
 
+  // 默认契约写在这里（而不是让用户去填自定义指令）：不填任何指令时，模型也应自主维护这个标记。
   const baseDescription =
-    "Mark or clear a session's visual project state by setting or replacing the state badge prefix on its title. " +
-    "Existing state prefixes are stripped automatically before applying the new one so prefixes never stack. " +
-    `This is purely a visual indicator in the session list and has no other behavioral side effects. ${defaultNote}\n\n` +
-    `Available states:\n${buildStateCatalogText(settings)}`;
+    "Keep the visual project state of a session current by setting or replacing the state badge prefix on its title. " +
+    "Maintain it on your own initiative: whenever the session moves into a different phase, update the badge without " +
+    "being asked. It is cheap and safe — a purely visual marker in the session list with no other behavioral side " +
+    "effects — so prefer updating it over leaving it stale. Pick the state whose description matches the current " +
+    "phase; if no state clearly matches, leave the badge as it is. Switching strips any existing prefix first, so " +
+    `badges never stack. ${defaultNote}\n\n` +
+    "Use each state's description as the criterion for when it applies:\n" +
+    buildStateCatalogText(settings);
 
   const fullDescription =
     settings.instructions.length > 0

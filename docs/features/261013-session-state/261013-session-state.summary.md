@@ -64,3 +64,25 @@
   `lib/client.js`，`node --test test/*.test.mjs` 7/7 通过；`npm pack` 清单含 dist、lib/client.js、
   cordis.patch.yml、双语 README 与 LICENSE。
 - npm 发布稍后进行。
+
+## 6. 默认自主性（不填额外指令也能工作）
+
+工具的**默认描述本身**就是行为契约，`instructions` 只用来追加额外偏好（用户预期：大部分人不会填）：
+
+> Maintain it on your own initiative: whenever the session moves into a different phase, update the badge without
+> being asked. It is cheap and safe … prefer updating it over leaving it stale. Pick the state whose description
+> matches the current phase; if no state clearly matches, leave the badge as it is.
+
+每个状态项的「说明」（`description`）是判定时机的依据，因此自定义状态列表时自主判断同样成立；新会话已有
+默认状态时描述会写明「do not set it again, just move it forward」。
+
+**探针验证**（`e2e/autonomy-probe.mjs`，真实模型、**未配置任何额外指令**、新会话默认 `🚧`）：
+一个普通一次性任务（读仓库 `package.json` 的 `name` 并结束）后，模型自行调用 `session_state`：
+
+```
+tool calls: read → session_state
+title events: ["fallback:🚧 …", "provider:🚧 查询仓库的包名称字段值", "user:✅ 查询仓库的包名称字段值"]
+final badge = ✅
+```
+
+结论：无额外指令时，模型会按阶段自主维护状态标记。

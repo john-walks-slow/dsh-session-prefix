@@ -59,6 +59,8 @@ No manual configuration is needed: the bundled `cordis.patch.yml` mounts automat
 
 States are selected by **key** only (`wip`, `review`, `done`, …); labels and prefixes are display-only and are not accepted as input.
 
+**No configuration needed**: the tool description itself states that the agent maintains the badge on its own initiative as phases change, and each state's description is the criterion for when it applies. Extra operator instructions are only for additional preferences (for example "never set done without my confirmation").
+
 ## Development
 
 ```bash

@@ -264,13 +264,13 @@ export function SessionStatePanel(props: SessionStatePanelProps): React.ReactEle
       React.createElement(
         "p",
         { className: "dss-hint" },
-        "让 Agent 能调用 session_state 切换状态前缀；下方指令会追加到该工具的描述中（进入模型提示），请勿填写秘密。",
+        "让 Agent 能调用 session_state 自主维护状态标记。下方指令是可选的：不填时模型也会按各状态的说明自主切换，只有想要额外偏好（例如「交付后必须等我说完成才设 done」）时才需要写。指令会进入模型提示，请勿填写秘密。",
       ),
       React.createElement("textarea", {
         className: "dss-textarea",
         rows: 3,
         placeholder:
-          "例如：开始实施代码时设为 wip；需要用户确认计划或阻塞时设为 blocked；等待用户验收时设为 review；任务完成后设为 done。",
+          "可选。默认已能自主切换，这里只写额外偏好。例如：部署类任务一律先标 plan；没有我的确认不要设 done。",
         value: currentInstructions,
         disabled: !writable || busy,
         onChange: (event: React.ChangeEvent<HTMLTextAreaElement>) => setInstructionDraft(event.target.value),
