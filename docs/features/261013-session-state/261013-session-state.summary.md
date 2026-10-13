@@ -34,3 +34,23 @@
   5. 模型调用 `session_state` 且参数为 `state=review`，日志与侧边栏均为 `👀`；
   6. 全会话日志不存在叠罗汉标题。
 - 证据截图：`docs/features/261013-session-state/e2e/261013-session-state/`（01-default-state / 02-state-done / 03-tool-review）。
+
+## 4. 线上装载（已完成，无需重启）
+
+零停机装载进线上 web profile（dsh 监听 4180）：
+
+- `/root/.dsh/profiles/web/package.json`：依赖 `"dsh-session-state": "link:/root/projects/dsh-session-state"`
+  + `dsh.profile.bundles` 追加 `dsh-session-state`；`pnpm install` 建立软链。改前已备份
+  `package.json.bak-session-state-*` 与 `pnpm-lock.yaml.bak-session-state-*`。
+- 热装载：`pluginManager/setBundleEnabled({ name: "dsh-session-state", enabled: false })` → `true`，
+  两次均 `application: "applied"`、`changed: true`（`changed` = 本次真的重挂了 bundle，不是空操作）。
+- `pluginManager/listPlugins`：`include:session-state` → `enabled: true`、`fiberPhase: "active"`；
+  总插件行数 231 → 232，`dsh-manage-session` 等既有插件仍为 `active`。
+- **踩坑**：`pluginManager/installBundle` 靠「pnpm 后依赖 diff」识别装的是哪个包。已经手动把依赖写进
+  `package.json` 并跑过 `pnpm install` 之后再调它，diff 为空 → 报 `ambiguous-install`
+  （`application: "failed"`，但它会 `restoreFiles` 回滚自己的临时改动，盘上不受影响）。
+  正确顺序：**要么**让 `installBundle` 全包（盘上先不加依赖），**要么**手改盘后用 `setBundleEnabled` 重挂。
+  另外 `setBundleEnabled` 的字段名是 `name`（不是 `packageName`），多参数 RPC 的 `args` 必须是一个
+  plain object，参数按名字给。
+- 回滚：`pluginManager/removeBundle("dsh-session-state")`，或从上面的备份还原 `package.json` /
+  `pnpm-lock.yaml` 后 `pnpm install`。
