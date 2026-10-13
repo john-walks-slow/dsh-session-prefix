@@ -1,0 +1,87 @@
+{
+  "name": "dsh-session-state",
+  "version": "0.1.0",
+  "description": "Visual session state badges for DeepSeek Harness: mark a session's project state by prefixing its title with customizable emoji or text badges (default wip 🚧, blocked ⏸️, review 👀, done ✅, plan 💡, bug 🐛), with configurable default state for new sessions, a model tool (session_state), a user slash command (/state), and a Web settings panel. dsh-session-state：用会话标题前缀（默认 Emoji，可自定义）标记项目状态，支持新会话默认状态（默认 wip，可选 none）、Agent 工具 session_state、用户命令 /state 与 Web 设置页（纯视觉区分，无其他行为副作用）。",
+  "type": "module",
+  "main": "./dist/index.js",
+  "exports": {
+    ".": "./dist/index.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json",
+    "./client": "./lib/client.js"
+  },
+  "files": [
+    "dist",
+    "lib/client.js",
+    "cordis.patch.yml",
+    "README.md",
+    "README.en.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "rm -rf dist lib/client.js && tsc -p tsconfig.build.json && node scripts/build-client.mjs && node --check lib/client.js",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test test/*.test.mjs",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run check",
+    "release": "npm run test && npm version patch && npm pack --pack-destination /tmp",
+    "build:client": "node scripts/build-client.mjs && node --check lib/client.js"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-settings"
+      ],
+      "platform": "web"
+    }
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "session",
+    "session-state",
+    "title",
+    "prefix",
+    "emoji",
+    "status",
+    "会话状态",
+    "标题前缀"
+  ],
+  "license": "MIT",
+  "author": "johnnren",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/john-walks-slow/dsh-session-state.git"
+  },
+  "homepage": "https://github.com/john-walks-slow/dsh-session-state#readme",
+  "bugs": {
+    "url": "https://github.com/john-walks-slow/dsh-session-state/issues"
+  },
+  "engines": {
+    "node": ">=22.5"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh-tools": "^0.1.5-rc.3 || ^0.2.0-rc.1",
+    "@deepseek-ai/schemastery": "^3.18.4"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "4.0.4",
+    "@deepseek-ai/dsh-agent": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-client-ui-settings": "^0.2.0-rc.2",
+    "@deepseek-ai/dsh-commands": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-llm": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-session": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-session-title": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-tools": "0.2.0-rc.2",
+    "@deepseek-ai/schemastery": "^3.18.4",
+    "@types/node": "^22.20.1",
+    "@types/react": "^19.3.0",
+    "esbuild": "^0.28.2",
+    "react": "^19.3.0",
+    "typescript": "^5.9.3"
+  }
+}

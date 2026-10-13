@@ -1,0 +1,7 @@
+node_modules/
+dist/
+lib/client.js
+lib/client.bundle.js
+.dsh-e2e-home/
+*.tgz
+.DS_Store
