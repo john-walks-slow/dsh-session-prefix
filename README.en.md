@@ -78,3 +78,7 @@ npm run check   # TypeScript typecheck
 npm run build   # Build dist/ and lib/client.js
 npm test        # Build and run unit tests
 ```
+
+## Community
+
+- Thanks to the [LINUX DO](https://linux.do/) community for providing the discussion environment.

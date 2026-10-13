@@ -93,3 +93,7 @@ npm run check   # TypeScript 类型检查
 npm run build   # 构建 dist/ 与 lib/client.js
 npm test        # 运行构建与全部单元测试
 ```
+
+## 社区
+
+- 感谢 [LINUX DO](https://linux.do/) 社区提供的交流环境。
