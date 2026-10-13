@@ -54,3 +54,13 @@
   plain object，参数按名字给。
 - 回滚：`pluginManager/removeBundle("dsh-session-state")`，或从上面的备份还原 `package.json` /
   `pnpm-lock.yaml` 后 `pnpm install`。
+
+## 5. 发布
+
+- **GitHub 已公开**：<https://github.com/john-walks-slow/dsh-session-state>（首次公开，提交者身份统一为
+  `john-walks-slow <john-walks-slow@users.noreply.github.com>`；全历史隐私扫描零命中；LICENSE 署名为
+  `dsh-session-state contributors`）。topics 含 `dsh-plugin`、`deepseek-harness` 等。
+- **依赖可安装性实测**：干净 clone 后 `pnpm install` + `pnpm run build` 成功产出 `dist/` 与
+  `lib/client.js`，`node --test test/*.test.mjs` 7/7 通过；`npm pack` 清单含 dist、lib/client.js、
+  cordis.patch.yml、双语 README 与 LICENSE。
+- npm 发布稍后进行。
