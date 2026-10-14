@@ -1,5 +1,6 @@
 # awesome-dsh-plugin 投稿草稿（data/plugins/john-walks-slow__session-prefix.yml）
 # 前置：仓库创建满 1 天（本仓库 2026-10-13 12:08 创建，2026-10-14 12:08 起可提）。
+# 已提交：2026-10-14 PR https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/7341
 # 流程：gh repo fork awesome-dsh-plugin/awesome-dsh-plugin → 只新增这一个文件 → PR。
 # 注意：description 含 ": " 必须加引号；描述会被对着代码核，只写实际行为。
 # 搜索机制（dsh-market 实测源码）：索引 name/npm/owner/description(en+zh)/category，
