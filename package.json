@@ -1,7 +1,7 @@
 {
-  "name": "dsh-session-state",
+  "name": "session-prefix",
   "version": "0.1.0",
-  "description": "Visual session state badges for DeepSeek Harness: mark a session's project state by prefixing its title with customizable emoji or text badges (default wip 🚧, blocked ⏸️, review 👀, done ✅, plan 💡, bug 🐛), with configurable default state for new sessions, a model tool (session_state), a user slash command (/state), and a Web settings panel. dsh-session-state：用会话标题前缀（默认 Emoji，可自定义）标记项目状态，支持新会话默认状态（默认 wip，可选 none）、Agent 工具 session_state、用户命令 /state 与 Web 设置页（纯视觉区分，无其他行为副作用）。",
+  "description": "Visual session state badges for DeepSeek Harness: mark a session's project state by prefixing its title with customizable emoji or text badges (default wip 🚧, blocked ⏸️, review 👀, done ✅, plan 💡, bug 🐛), with configurable default state for new sessions, a model tool (session_prefix), a user slash command (/state), and a Web settings panel. session-prefix：用会话标题前缀（默认 Emoji，可自定义）标记项目状态，支持新会话默认状态（默认 wip，可选 none）、Agent 工具 session_prefix、用户命令 /state 与 Web 设置页（纯视觉区分，无其他行为副作用）。",
   "type": "module",
   "main": "./dist/index.js",
   "exports": {
@@ -26,7 +26,7 @@
     "prepublishOnly": "npm run check",
     "release": "npm run test && npm version patch && npm pack --pack-destination /tmp",
     "build:client": "node scripts/build-client.mjs && node --check lib/client.js",
-    "e2e:state": "dsh-e2e run e2e/session-state.mjs",
+    "e2e:state": "dsh-e2e run e2e/session-prefix.mjs",
     "e2e:screenshots": "dsh-e2e run e2e/screenshots.mjs",
     "e2e:autonomy": "dsh-e2e run e2e/autonomy-probe.mjs"
   },
@@ -46,7 +46,7 @@
     "dsh-plugin",
     "deepseek-harness",
     "session",
-    "session-state",
+    "session-prefix",
     "title",
     "prefix",
     "emoji",
@@ -58,11 +58,11 @@
   "author": "johnnren",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/john-walks-slow/dsh-session-state.git"
+    "url": "git+https://github.com/john-walks-slow/session-prefix.git"
   },
-  "homepage": "https://github.com/john-walks-slow/dsh-session-state#readme",
+  "homepage": "https://github.com/john-walks-slow/session-prefix#readme",
   "bugs": {
-    "url": "https://github.com/john-walks-slow/dsh-session-state/issues"
+    "url": "https://github.com/john-walks-slow/session-prefix/issues"
   },
   "engines": {
     "node": ">=22.5"

@@ -1,8 +1,8 @@
 /**
  * 「会话状态」插件设置面板：
- * 1. 模型工具 `session_state` 启用开关 + 自定义指令；
- * 2. 新会话默认状态下拉选择（默认 `wip`，可选 `none` 或任意已配置状态）；
- * 3. 自定义自由前缀开关（`allowCustomPrefix`）；
+ * 1. 新会话默认状态下拉选择（默认 `wip`，可选 `none` 或任意已配置状态）；
+ * 2. Jev 自动状态推断开关（`jevEnabled`，回合开始与回合结束自动判定）；
+ * 3. 模型工具 `session_prefix` 启用开关（`toolEnabled`）+ 自定义指令；
  * 4. 状态预设表（`states`）可视化增、删、改与一键恢复默认。
  */
 import * as React from "react";
@@ -17,6 +17,13 @@ export interface ClientStatePreset {
 
 export interface SessionStateSettings {
   enabled: boolean;
+  toolEnabled: boolean;
+  jevEnabled: boolean;
+  jevApiKey?: string;
+  jevBaseUrl?: string;
+  jevModel?: string;
+  jevInstructions?: string;
+  jevNoneCriteria?: string;
   defaultState: string;
   instructions: string;
   states: ClientStatePreset[];
@@ -61,6 +68,13 @@ export function SessionStatePanel(props: SessionStatePanelProps): React.ReactEle
   const [snapshot, setSnapshot] = React.useState<SettingsScopeSnapshot<SessionStateSettings>>(scope.getSnapshot());
   const [instructionDraft, setInstructionDraft] = React.useState<string | null>(null);
   const [statesDraft, setStatesDraft] = React.useState<ClientStatePreset[] | null>(null);
+  const [jevApiKeyDraft, setJevApiKeyDraft] = React.useState<string | null>(null);
+  const [jevBaseUrlDraft, setJevBaseUrlDraft] = React.useState<string | null>(null);
+  const [jevModelDraft, setJevModelDraft] = React.useState<string | null>(null);
+  const [jevInstructionsDraft, setJevInstructionsDraft] = React.useState<string | null>(null);
+  const [jevNoneCriteriaDraft, setJevNoneCriteriaDraft] = React.useState<string | null>(null);
+  const [testingJev, setTestingJev] = React.useState(false);
+  const [jevTestFeedback, setJevTestFeedback] = React.useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [feedback, setFeedback] = React.useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
@@ -75,7 +89,7 @@ export function SessionStatePanel(props: SessionStatePanelProps): React.ReactEle
       { className: "dss-note" },
       snapshot.mode === "memory"
         ? "设置暂不可用：当前页面不是通过本机地址访问，平台把设置降级为进程本地（memory）模式，这里只读。请用 127.0.0.1 打开后再编辑。"
-        : "设置不可用：这个 profile 没有组合 settings 服务，或 session-state 这个 entry 没有配置节。当前显示的是插件默认值。",
+        : "设置不可用：这个 profile 没有组合 settings 服务，或 session-prefix 这个 entry 没有配置节。当前显示的是插件默认值。",
     );
   }
 
@@ -91,6 +105,95 @@ export function SessionStatePanel(props: SessionStatePanelProps): React.ReactEle
   const savedInstructions = String(value.instructions ?? "");
   const currentInstructions = instructionDraft ?? savedInstructions;
   const instructionsDirty = currentInstructions !== savedInstructions;
+
+  const isToolEnabled =
+    value.toolEnabled !== undefined ? value.toolEnabled !== false : value.enabled !== false;
+  const isJevEnabled = value.jevEnabled !== undefined ? value.jevEnabled !== false : true;
+
+  const savedJevApiKey = String(value.jevApiKey ?? "");
+  const currentJevApiKey = jevApiKeyDraft ?? savedJevApiKey;
+  const savedJevBaseUrl = String(value.jevBaseUrl ?? "");
+  const currentJevBaseUrl = jevBaseUrlDraft ?? savedJevBaseUrl;
+  const savedJevModel = String(value.jevModel ?? "");
+  const currentJevModel = jevModelDraft ?? savedJevModel;
+  const savedJevInstructions = String(value.jevInstructions ?? "");
+  const currentJevInstructions = jevInstructionsDraft ?? savedJevInstructions;
+  const savedJevNoneCriteria = String(value.jevNoneCriteria ?? "");
+  const currentJevNoneCriteria = jevNoneCriteriaDraft ?? savedJevNoneCriteria;
+
+  const jevConfigDirty =
+    (jevApiKeyDraft !== null && jevApiKeyDraft !== savedJevApiKey) ||
+    (jevBaseUrlDraft !== null && jevBaseUrlDraft !== savedJevBaseUrl) ||
+    (jevModelDraft !== null && jevModelDraft !== savedJevModel) ||
+    (jevInstructionsDraft !== null && jevInstructionsDraft !== savedJevInstructions) ||
+    (jevNoneCriteriaDraft !== null && jevNoneCriteriaDraft !== savedJevNoneCriteria);
+
+  const saveJevConfig = async () => {
+    setBusy(true);
+    setFeedback(null);
+    try {
+      if (jevApiKeyDraft !== null) await scope.set("jevApiKey", jevApiKeyDraft.trim());
+      if (jevBaseUrlDraft !== null) await scope.set("jevBaseUrl", jevBaseUrlDraft.trim());
+      if (jevModelDraft !== null) await scope.set("jevModel", jevModelDraft.trim());
+      if (jevInstructionsDraft !== null) await scope.set("jevInstructions", jevInstructionsDraft.trim());
+      if (jevNoneCriteriaDraft !== null) await scope.set("jevNoneCriteria", jevNoneCriteriaDraft.trim());
+      setJevApiKeyDraft(null);
+      setJevBaseUrlDraft(null);
+      setJevModelDraft(null);
+      setJevInstructionsDraft(null);
+      setJevNoneCriteriaDraft(null);
+      setFeedback({ kind: "ok", text: "已保存 Jev 配置。" });
+    } catch (error) {
+      setFeedback({ kind: "err", text: `保存失败：${error instanceof Error ? error.message : String(error)}` });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const testJevConnection = async () => {
+    setTestingJev(true);
+    setJevTestFeedback(null);
+    try {
+      const response = await fetch("api/session-prefix/jev-probe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          baseUrl: currentJevBaseUrl.trim() || undefined,
+          model: currentJevModel.trim() || undefined,
+        }),
+      });
+      const result = (await response.json().catch(() => null)) as {
+        ok?: boolean;
+        message?: string;
+      } | null;
+      if (result?.ok) {
+        setJevTestFeedback({ kind: "ok", text: `正常 · ${result.message ?? ""}`.trim() });
+      } else {
+        setJevTestFeedback({ kind: "err", text: result?.message ?? `HTTP ${response.status}` });
+      }
+    } catch (error) {
+      setJevTestFeedback({
+        kind: "err",
+        text: `测速失败：${error instanceof Error ? error.message : String(error)}`,
+      });
+    } finally {
+      setTestingJev(false);
+    }
+  };
+
+  const saveToolEnabled = async (checked: boolean) => {
+    setBusy(true);
+    setFeedback(null);
+    try {
+      await scope.set("toolEnabled", checked);
+      await scope.set("enabled", checked);
+      setFeedback({ kind: "ok", text: "已保存：对模型工具 session_prefix 在下一个回合生效。" });
+    } catch (error) {
+      setFeedback({ kind: "err", text: `保存失败：${error instanceof Error ? error.message : String(error)}` });
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const currentDefaultState = typeof value.defaultState === "string" && value.defaultState.length > 0
     ? value.defaultState
@@ -229,7 +332,7 @@ export function SessionStatePanel(props: SessionStatePanelProps): React.ReactEle
         "新会话首次自动生成标题时自动冠上该状态前缀（默认 wip 🚧），且不会打断后台 LLM 自动生成标题。",
       ),
     ),
-    // 卡片 2：模型工具开关与自定义指令
+    // 卡片 2：Jev 自动状态推断开关
     React.createElement(
       "section",
       { className: "dss-card" },
@@ -241,21 +344,25 @@ export function SessionStatePanel(props: SessionStatePanelProps): React.ReactEle
           { className: "dss-switch" },
           React.createElement("input", {
             type: "checkbox",
-            checked: value.enabled !== false,
+            checked: isJevEnabled,
             disabled: !writable || busy,
             onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
-              void saveField("enabled", event.target.checked),
+              void saveField(
+                "jevEnabled",
+                event.target.checked,
+                "已保存：Jev 自动状态推断设置已更新。",
+              ),
           }),
-          React.createElement("span", { className: "dss-title" }, "启用模型工具 session_state"),
+          React.createElement("span", { className: "dss-title" }, "启用 Jev 自动状态推断"),
         ),
-        overridden("enabled")
+        overridden("jevEnabled")
           ? React.createElement(
               "button",
               {
                 type: "button",
                 className: "dss-reset",
                 disabled: !writable || busy,
-                onClick: () => void resetField("enabled"),
+                onClick: () => void resetField("jevEnabled"),
               },
               "恢复默认",
             )
@@ -264,7 +371,111 @@ export function SessionStatePanel(props: SessionStatePanelProps): React.ReactEle
       React.createElement(
         "p",
         { className: "dss-hint" },
-        "让 Agent 能调用 session_state 自主维护状态标记。下方指令是可选的：不填时模型也会按各状态的说明自主切换，只有想要额外偏好（例如「交付后必须等我说完成才设 done」）时才需要写。指令会进入模型提示，请勿填写秘密。",
+        "在回合开始（捕捉用户新意图）与回合结束（评估助手交付成果）两个节点，自动调用 TypeSafe Jev 快决策模型推断项目状态并平滑更新会话标题前缀。支持配置自定义端点与凭据，或通过 JEV_API_KEY 环境变量自动获取。",
+      ),
+      isJevEnabled
+        ? React.createElement(
+            "div",
+            { style: { display: "flex", flexDirection: "column", gap: 8, marginTop: 4 } },
+            React.createElement("input", {
+              type: "password",
+              className: "dss-input",
+              placeholder: "Jev API Key（留空则读取环境变量 JEV_API_KEY）",
+              value: currentJevApiKey,
+              disabled: !writable || busy,
+              onChange: (event: React.ChangeEvent<HTMLInputElement>) => setJevApiKeyDraft(event.target.value),
+            }),
+            React.createElement("input", {
+              type: "text",
+              className: "dss-input",
+              placeholder: "Jev Base URL（留空则使用 JEV_BASE_URL 或默认端点）",
+              value: currentJevBaseUrl,
+              disabled: !writable || busy,
+              onChange: (event: React.ChangeEvent<HTMLInputElement>) => setJevBaseUrlDraft(event.target.value),
+            }),
+            React.createElement("input", {
+              type: "text",
+              className: "dss-input",
+              placeholder: "Jev 模型名称（留空则使用 JEV_MODEL 或 typesafe/jev-1.13）",
+              value: currentJevModel,
+              disabled: !writable || busy,
+              onChange: (event: React.ChangeEvent<HTMLInputElement>) => setJevModelDraft(event.target.value),
+            }),
+            React.createElement(
+              "div",
+              { className: "dss-row dss-actions" },
+              React.createElement(
+                "button",
+                {
+                  type: "button",
+                  className: "dss-btn",
+                  disabled: !writable || busy || testingJev,
+                  onClick: () => void testJevConnection(),
+                },
+                testingJev ? "测速中…" : "测速",
+              ),
+              React.createElement(
+                "button",
+                {
+                  type: "button",
+                  className: "dss-save",
+                  disabled: !writable || busy || !jevConfigDirty,
+                  onClick: () => void saveJevConfig(),
+                },
+                "保存 Jev 配置",
+              ),
+              jevTestFeedback !== null
+                ? React.createElement(
+                    "span",
+                    { className: jevTestFeedback.kind === "ok" ? "dss-ok" : "dss-error" },
+                    jevTestFeedback.text,
+                  )
+                : null,
+            ),
+          )
+        : null,
+    ),
+    // 卡片 3：模型工具开关与自定义指令
+    React.createElement(
+      "section",
+      { className: "dss-card" },
+      React.createElement(
+        "div",
+        { className: "dss-row" },
+        React.createElement(
+          "label",
+          { className: "dss-switch" },
+          React.createElement("input", {
+            type: "checkbox",
+            checked: isToolEnabled,
+            disabled: !writable || busy,
+            onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
+              void saveToolEnabled(event.target.checked),
+          }),
+          React.createElement("span", { className: "dss-title" }, "启用模型工具 session_prefix"),
+        ),
+        overridden("toolEnabled") || overridden("enabled")
+          ? React.createElement(
+              "button",
+              {
+                type: "button",
+                className: "dss-reset",
+                disabled: !writable || busy,
+                onClick: () => {
+                  void (async () => {
+                    await resetField("toolEnabled");
+                    await resetField("enabled");
+                  })();
+                },
+              },
+              "恢复默认",
+            )
+          : null,
+      ),
+      React.createElement(
+        "p",
+        { className: "dss-hint" },
+        "向 Agent 暴露 session_prefix 工具，供模型在任务推进过程中自主维护状态标记。若下方未填写自定义指令，模型也会根据各状态的说明自主切换；若填写指令，则仅用于补充额外偏好（例如「交付后必须等我说完成才设 done」）。",
       ),
       React.createElement("textarea", {
         className: "dss-textarea",
@@ -304,7 +515,7 @@ export function SessionStatePanel(props: SessionStatePanelProps): React.ReactEle
           : null,
       ),
     ),
-    // 卡片 3：自定义状态预设表
+    // 卡片 4：自定义状态预设表
     React.createElement(
       "section",
       { className: "dss-card" },

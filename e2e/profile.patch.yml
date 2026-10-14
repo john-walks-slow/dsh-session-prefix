@@ -1,4 +1,4 @@
-# dsh-session-state e2e 用户 patch 层：给最小 profile 补 cpa provider 适配器。
+# session-prefix e2e 用户 patch 层：给最小 profile 补 cpa provider 适配器。
 #
 # 最小 e2e profile（dsh-base + dsh-web-app + 本插件）里 `llm-pi-ai` 没有 cpa 适配器，
 # 模型调用会以 NO_ADAPTER 结束（"no adapter registered for provider cpa"），e2e 的每个回合

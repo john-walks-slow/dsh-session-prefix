@@ -82,6 +82,13 @@ const StatePresetSchema = z.object({
 
 export const Config = z.object({
   enabled: z.boolean().default(true).volatile(),
+  toolEnabled: z.boolean().volatile(),
+  jevEnabled: z.boolean().default(true).volatile(),
+  jevApiKey: z.string().default("").volatile(),
+  jevBaseUrl: z.string().default("").volatile(),
+  jevModel: z.string().default("").volatile(),
+  jevInstructions: z.string().default("").volatile(),
+  jevNoneCriteria: z.string().default("").volatile(),
   defaultState: z.string().default("wip").volatile(),
   instructions: z.string().default("").volatile(),
   states: z
@@ -92,7 +99,22 @@ export const Config = z.object({
 
 /** 运行时归一化后的设置快照。 */
 export interface SettingsSnapshot {
+  /** 兼容历史：等同于 toolEnabled。 */
   readonly enabled: boolean;
+  /** 模型工具 session_prefix 启用开关。 */
+  readonly toolEnabled: boolean;
+  /** Jev 自动状态推断开关（在 turn/start 和 turn/end 自动执行）。 */
+  readonly jevEnabled: boolean;
+  /** 可选的 Jev API 密钥。 */
+  readonly jevApiKey: string;
+  /** 可选的 Jev API 基础路径。 */
+  readonly jevBaseUrl: string;
+  /** 可选的 Jev 决策模型名称。 */
+  readonly jevModel: string;
+  /** 可选的 Jev 判定问题文案；空串表示用内置默认。 */
+  readonly jevInstructions: string;
+  /** 可选的 none（无适用状态）选项说明；空串表示用内置默认。 */
+  readonly jevNoneCriteria: string;
   /** 新会话默认状态 key；`"none"` 表示不自动添加状态前缀。 */
   readonly defaultState: string;
   readonly instructions: string;
@@ -106,6 +128,13 @@ interface VolatileLike<T> {
 
 export interface SettingsConfig {
   readonly enabled?: VolatileLike<boolean>;
+  readonly toolEnabled?: VolatileLike<boolean>;
+  readonly jevEnabled?: VolatileLike<boolean>;
+  readonly jevApiKey?: VolatileLike<string>;
+  readonly jevBaseUrl?: VolatileLike<string>;
+  readonly jevModel?: VolatileLike<string>;
+  readonly jevInstructions?: VolatileLike<string>;
+  readonly jevNoneCriteria?: VolatileLike<string>;
   readonly defaultState?: VolatileLike<string>;
   readonly instructions?: VolatileLike<string>;
   readonly states?: VolatileLike<readonly StatePreset[]>;
@@ -114,8 +143,27 @@ export interface SettingsConfig {
 /** 从运行中的配置引用读一份归一化快照。 */
 export function readSettings(config: SettingsConfig | undefined): SettingsSnapshot {
   const states = sanitizeStates(config?.states?.get());
+  const rawToolEnabled = config?.toolEnabled?.get();
+  const toolEnabled =
+    typeof rawToolEnabled === "boolean"
+      ? rawToolEnabled
+      : config?.enabled?.get() !== false;
+  const jevEnabled =
+    config?.jevEnabled !== undefined
+      ? config.jevEnabled.get() !== false
+      : true;
+
   return {
-    enabled: config?.enabled?.get() !== false,
+    enabled: toolEnabled,
+    toolEnabled,
+    jevEnabled,
+    jevApiKey: typeof config?.jevApiKey?.get() === "string" ? config.jevApiKey.get().trim() : "",
+    jevBaseUrl: typeof config?.jevBaseUrl?.get() === "string" ? config.jevBaseUrl.get().trim() : "",
+    jevModel: typeof config?.jevModel?.get() === "string" ? config.jevModel.get().trim() : "",
+    jevInstructions:
+      typeof config?.jevInstructions?.get() === "string" ? config.jevInstructions.get().trim() : "",
+    jevNoneCriteria:
+      typeof config?.jevNoneCriteria?.get() === "string" ? config.jevNoneCriteria.get().trim() : "",
     defaultState: sanitizeDefaultState(config?.defaultState?.get(), states),
     instructions: sanitizeInstruction(config?.instructions?.get()),
     states,

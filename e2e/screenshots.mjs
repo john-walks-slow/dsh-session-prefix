@@ -111,7 +111,7 @@ try {
   // Crop the tall sidebar element down to the rows it actually holds.
   const listBox = await sessionList.boundingBox();
   const lastBox = await sessionList.locator('[data-row-key^="session:"]').last().boundingBox();
-  const shot = `${OUT}screenshot-1-session-states.png`;
+  const shot = `${OUT}screenshot-1-session-prefixes.png`;
   if (listBox && lastBox) {
     await page.screenshot({
       path: shot,

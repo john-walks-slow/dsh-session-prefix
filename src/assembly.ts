@@ -1,6 +1,6 @@
 /**
  * 按当前设置装配工具表：
- * - `enabled: false` 时不注册 `session_state`（模型不可见）；
+ * - `toolEnabled: false` 时不注册 `session_prefix`（模型不可见）；
  * - 状态预设列表、默认状态或自定义指令发生任何变化时，在 `turn/start` 重新注册工具，
  *   让最新的状态清单与指令在下一个回合立即生效。
  */
@@ -23,7 +23,7 @@ export function syncTools(
   registered: Registration[],
   config?: SettingsConfig,
 ): string[] {
-  if (!settings.enabled) {
+  if (!settings.toolEnabled) {
     disposeTools(registered);
     return [];
   }

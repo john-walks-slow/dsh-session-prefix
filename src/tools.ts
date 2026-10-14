@@ -1,5 +1,5 @@
 /**
- * 模型面工具 `session_state` 定义。
+ * 模型面工具 `session_prefix` 定义。
  *
  * 工具描述与参数说明根据当前 `SettingsSnapshot` 动态构建，确保用户在 Web 设置页修改状态预设、
  * 默认状态或自定义指令后，下一个回合的模型提示词立即反映最新状态表。
@@ -48,7 +48,7 @@ export function buildStateCatalogText(settings: SettingsSnapshot): string {
   return lines.join("\n");
 }
 
-/** 构建 `session_state` 工具定义。 */
+/** 构建 `session_prefix` 工具定义。 */
 export function stateToolDefinition(
   ctx: Context,
   tracker: StateTracker,
@@ -92,7 +92,7 @@ export function stateToolDefinition(
       : baseDescription;
 
   return defineTool({
-    name: "session_state",
+    name: "session_prefix",
     description: fullDescription,
     parameters,
     output: {
@@ -115,7 +115,7 @@ export function stateToolDefinition(
       return {
         card: "generic",
         kind: "edit",
-        title: `session_state${target} → ${stateArg}`,
+        title: `session_prefix${target} → ${stateArg}`,
         rawInput: JSON.stringify(args),
       };
     },

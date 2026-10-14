@@ -1,4 +1,4 @@
-# dsh-session-state
+# session-prefix
 
 中文 | [English](README.en.md)
 
@@ -6,7 +6,7 @@
 
 支持：
 - **新会话默认状态**：新会话产生标题时自动冠上默认状态前缀（默认为 `wip` `🚧`，也可在设置页改为其他状态或 `none`），且不会打断后台 LLM 自动生成标题；
-- **面向 Agent 的模型工具 `session_state`**：让 Agent 在工作流阶段切换时自动更新会话状态前缀；
+- **面向 Agent 的模型工具 `session_prefix`**：让 Agent 在工作流阶段切换时自动更新会话状态前缀；
 - **面向用户的斜杠命令 `/state`**：随时查看、切换或清除当前会话的状态前缀；
 - **Web 插件设置页（「会话状态」）**：可视化增删改状态列表（自定义 Emoji 或文本前缀、Key、名称、说明）、选择新会话默认状态、开关模型工具并编写自定义 `Operator instructions`；
 - **原生侧边栏搜索筛选**：在 DSH 侧边栏搜索框输入任意状态前缀（如 `🚧`、`✅`、`👀`），即可即时筛选出对应状态的所有会话。
@@ -14,35 +14,40 @@
 ## 安装
 
 ```bash
-dsh plugin --profile web add dsh-session-state
+dsh plugin --profile web add session-prefix
 ```
 
 从 GitHub 安装（源码安装，会执行本仓库的 `prepare` 构建）：
 
 ```bash
-dsh plugin --profile web add github:john-walks-slow/dsh-session-state
+dsh plugin --profile web add github:john-walks-slow/session-prefix
 ```
 
 本地开发目录直链：
 
 ```bash
-dsh plugin --profile web add link:/path/to/dsh-session-state
+dsh plugin --profile web add link:/path/to/session-prefix
 ```
 
-安装后无需手工改配置：插件自带的 `cordis.patch.yml` 自动挂载生效，模型工具表里多出 `session_state`，命令表里多出 `/state`，设置页里多出「会话状态」。
+安装后无需手工改配置：插件自带的 `cordis.patch.yml` 自动挂载生效，模型工具表里多出 `session_prefix`，命令表里多出 `/state`，设置页里多出「会话状态」。
 
 > 源码安装需要 Node ≥ 22.5，并在安装时执行构建（`tsc` + `esbuild`，产出 `dist/` 与 `lib/client.js`）。pnpm ≥ 10 需放行该构建（`pnpm approve-builds`，或在 `onlyBuiltDependencies` 中加入本包）。
 
 ## 界面
 
-![不同状态的会话在侧边栏中的样子](assets/screenshot-1-session-states.png)
+![不同状态的会话在侧边栏中的样子](assets/screenshot-1-session-prefixes.png)
 
 ![「会话状态」设置页](assets/screenshot-2-settings.png)
 
 ## 权限与兼容
 
-- **不联网、不读写本机文件、不调用任何外部服务**。唯一的写入是往目标会话日志追加一条 `session/title` 事件（宿主自己的改名路径）。
-- 只作用于当前进程内 **live** 的会话（你自己，或 GUI 里打开着的会话）；不会为冷会话拉起 agent。
+- **状态持久化**：唯一的内部写入是往目标会话日志追加 `session/title` 事件（宿主自己的标题修改事件）。
+- **Jev 自动状态推断**：当开启 `jevEnabled`（默认开启）时，插件会在每个回合开始与回合结束节点调用 TypeSafe Jev 快决策模型（`typesafe/jev-1.13`，经 OpenRouter Decisions API），自动识别项目所处阶段并更新标题前缀。
+  - **凭据优先级**：插件配置（`jevApiKey`） → 环境变量（`OPENROUTER_API_KEY`） → 系统密码本（`~/.config/api-vault/vault.json` 中的 `openrouter.key`）。若均未配置则静默跳过，绝不报错打断正常会话。
+  - **接口与模型**：默认调用 `https://openrouter.ai/api/alpha/decisions`（可通过配置项 `jevBaseUrl` 覆写完整 Decisions API endpoint URL），默认决策模型为 `typesafe/jev-1.13`（可通过 `jevModel` 覆写）。
+  - **上下文裁剪**：每次仅截取用户最新提问（≤ 1000 字）及助手末尾总结（≤ 1000 字），绝不外发全量历史长文本。
+  - **平滑协同**：推断更新采用与宿主自动标题对齐的来源标记，绝不打断后台正在运行的 LLM 自动起名 Provider。
+- **作用范围**：只作用于当前进程内 **live** 的会话（你自己，或 GUI 里打开着的会话）；不会为冷会话拉起 agent，也不会给子代理会话增加前缀。
 - 需要提供 `sessionTitle` 服务的 dsh 宿主（`@deepseek-ai/dsh-base` 自带）。宿主没有 `commands` 服务时 `/state` 不注册，其余功能照常。
 
 ## 默认状态预设
@@ -72,7 +77,7 @@ dsh plugin --profile web add link:/path/to/dsh-session-state
 
 状态只用 **key** 选择（如 `wip`、`review`、`done`）；名称与前缀只用于展示，不作为入参。
 
-### 2. 模型工具 `session_state`
+### 2. 模型工具 `session_prefix`
 
 - `state`（必填）：状态 key（如 `"wip"`、`"review"`、`"done"`），或 `"none"` / `"clear"` 清除状态前缀。
 - `session_id`（可选）：目标会话 ID，省略时作用于当前会话（仅限当前进程内的 live 会话）。
@@ -83,7 +88,8 @@ dsh plugin --profile web add link:/path/to/dsh-session-state
 
 打开 **Settings → 会话状态**：
 - 选择**新会话默认状态**（默认 `wip`，可选 `none` 或任意自定义状态）；
-- 开关 **`session_state` 工具**并配置给 Agent 的自定义触发指令（如：`开始实施时设为 wip，等待用户验收时设为 review，完工后设为 done`）；
+- 开关 **Jev 自动状态推断**（在回合开始与回合结束自动分析意图与产出，自动更新会话状态前缀）；
+- 开关 **`session_prefix` 模型工具**并配置给 Agent 的自定义触发指令（如：`开始实施时设为 wip，等待用户验收时设为 review，完工后设为 done`）；
 - **增、删、改**状态预设列表（每项含 key、前缀、名称、说明），或一键恢复默认状态集。所有修改在保存后的下一个回合立即生效。
 
 ## 开发与测试

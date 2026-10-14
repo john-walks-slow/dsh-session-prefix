@@ -1,5 +1,5 @@
-# dsh-session-state bundle patch 层
+# session-prefix bundle patch 层
 # profile 的 dsh.profile.bundles 列出本包名即整层生效
 - insert:
-    - id: session-state
-      name: dsh-session-state
+    - id: session-prefix
+      name: session-prefix

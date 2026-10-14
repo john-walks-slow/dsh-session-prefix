@@ -1,7 +1,7 @@
 /**
  * 面板样式：一次性注入到文档，类名统一 `dss-` 前缀，避免污染宿主样式。
  */
-const STYLE_ID = "dsh-session-state-styles";
+const STYLE_ID = "session-prefix-styles";
 
 const CSS = `
 .dss-root { display: flex; flex-direction: column; gap: 12px; }

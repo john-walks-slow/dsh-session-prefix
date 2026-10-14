@@ -1,11 +1,11 @@
 /**
- * dsh-session-state e2e — full behavioral test through the GUI with a real model.
+ * session-prefix e2e — full behavioral test through the GUI with a real model.
  *
  * Flow: open the e2e GUI → new session → one ordinary turn (the host's automatic
  * fallback/provider title must come out prefixed with the default state 🚧) →
  * `/state done` (a user command must swap the prefix to ✅ without stacking) →
  * `/state none` (must strip the prefix) → one model turn told to call
- * `session_state` with state="review" (the tool must write the 👀 prefix).
+ * `session_prefix` with state="review" (the tool must write the 👀 prefix).
  *
  * Assertions read durable evidence: the session log's `session/title` events and
  * `tool/call` arguments, plus the sidebar's rendered row titles.
@@ -25,9 +25,9 @@ const execFileP = promisify(execFile);
 const HOME = process.env.DSH_E2E_HOME || "/root/.dsh-e2e";
 const SESSIONS_ROOT = `${HOME}/sessions`;
 const RUN = Date.now();
-const MARKER = `session-state-${RUN}`;
+const MARKER = `session-prefix-${RUN}`;
 
-const ARTIFACTS = new URL("../docs/features/261013-session-state/e2e/261013-session-state/", import.meta.url).pathname;
+const ARTIFACTS = new URL("../docs/features/261013-session-prefix/e2e/261013-session-prefix/", import.meta.url).pathname;
 mkdirSync(ARTIFACTS, { recursive: true });
 console.log(`home=${HOME}\nartifacts=${ARTIFACTS}`);
 
@@ -215,16 +215,16 @@ try {
   });
   check("`/state none` stripped the prefix", cleared === true, (await titleEvents(file)).at(-1)?.title ?? "(none)");
 
-  // --- model turn: the session_state tool must set review --------------------
+  // --- model turn: the session_prefix tool must set review --------------------
   const turnsBeforeTool = await turnCount(file);
   await sendPrompt(
-    `[${MARKER}] Automated e2e test. Call the session_state tool exactly once with state="review" ` +
+    `[${MARKER}] Automated e2e test. Call the session_prefix tool exactly once with state="review" ` +
       "(no session_id), then reply with one short line. Use no other tools.",
   );
   await waitFor(async () => (await turnCount(file)) > turnsBeforeTool, { what: "tool turn to end" });
   const events = parseEvents(await readLog(file));
   const calls = events.filter((event) => event.type === "tool/call").map((event) => event.data);
-  const stateCall = calls.find((call) => call.name === "session_state");
+  const stateCall = calls.find((call) => call.name === "session_prefix");
   const callArgs = (call) => {
     try {
       return JSON.parse(call.arguments);
@@ -233,7 +233,7 @@ try {
     }
   };
   console.log(`calls: ${calls.map((call) => call.name).join(" → ") || "(none)"}`);
-  check("session_state is exposed to the model", stateCall !== undefined, stateCall ? JSON.stringify(callArgs(stateCall)) : "no call");
+  check("session_prefix is exposed to the model", stateCall !== undefined, stateCall ? JSON.stringify(callArgs(stateCall)) : "no call");
   check(
     "the model asked for state=review",
     stateCall !== undefined && callArgs(stateCall).state === "review",

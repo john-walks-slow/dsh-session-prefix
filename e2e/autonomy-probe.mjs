@@ -20,7 +20,7 @@ const HOME = process.env.DSH_E2E_HOME || "/root/.dsh-e2e";
 const SESSIONS_ROOT = `${HOME}/sessions`;
 const RUN = Date.now();
 const MARKER = `autonomy-probe-${RUN}`;
-const ARTIFACTS = new URL("../docs/features/261013-session-state/e2e/261013-session-state/", import.meta.url).pathname;
+const ARTIFACTS = new URL("../docs/features/261013-session-prefix/e2e/261013-session-prefix/", import.meta.url).pathname;
 mkdirSync(ARTIFACTS, { recursive: true });
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -128,10 +128,10 @@ try {
   console.log(`title events: ${JSON.stringify(titles.map((t) => `${t.source.kind}:${t.title}`))}`);
   console.log(`assistant reply: ${reply}`);
 
-  const stateCalls = calls.filter((call) => call.name === "session_state");
+  const stateCalls = calls.filter((call) => call.name === "session_prefix");
   const finalTitle = titles.at(-1)?.title ?? "";
   const badge = /^(🚧|⏸️|👀|✅|💡|🐛)\s/u.exec(finalTitle)?.[1] ?? "(none)";
-  console.log(`\nVERDICT: called session_state on its own = ${stateCalls.length > 0}; final badge = ${badge}`);
+  console.log(`\nVERDICT: called session_prefix on its own = ${stateCalls.length > 0}; final badge = ${badge}`);
 
   await page.screenshot({ path: `${ARTIFACTS}04-autonomy-probe.png`, fullPage: true });
 } catch (error) {

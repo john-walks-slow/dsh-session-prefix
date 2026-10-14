@@ -1,4 +1,4 @@
-# dsh-session-state
+# session-prefix
 
 [中文](README.md) | English
 
@@ -6,7 +6,7 @@ Mark DeepSeek Harness session states using customizable title prefixes (Emoji or
 
 Features:
 - **Default state for new sessions**: Automatically prefixes newly titled sessions with your chosen default state (defaults to `wip` `🚧`, or choose any state / `none`), without interrupting background LLM title generation;
-- **Agent tool `session_state`**: Lets the agent set a session's state by key as task phases change;
+- **Agent tool `session_prefix`**: Lets the agent set a session's state by key as task phases change;
 - **User command `/state`**: View, switch, or clear the current session's state prefix by key at any time;
 - **Web Settings panel ("会话状态")**: Add, edit, or remove custom states (key, prefix, label, description), pick the default state for new sessions, toggle the model tool, and configure custom operator instructions;
 - **Sidebar search filtering**: Type any state badge (e.g. `🚧`, `✅`, `👀`) into the native DSH sidebar search box to filter sessions by state immediately.
@@ -14,28 +14,28 @@ Features:
 ## Install
 
 ```bash
-dsh plugin --profile web add dsh-session-state
+dsh plugin --profile web add session-prefix
 ```
 
 From GitHub (source install — runs this repository's `prepare` build):
 
 ```bash
-dsh plugin --profile web add github:john-walks-slow/dsh-session-state
+dsh plugin --profile web add github:john-walks-slow/session-prefix
 ```
 
 From a local checkout:
 
 ```bash
-dsh plugin --profile web add link:/path/to/dsh-session-state
+dsh plugin --profile web add link:/path/to/session-prefix
 ```
 
-No manual configuration is needed: the bundled `cordis.patch.yml` mounts automatically — the model tool table gains `session_state`, the command table gains `/state`, and Settings gains the "会话状态" page.
+No manual configuration is needed: the bundled `cordis.patch.yml` mounts automatically — the model tool table gains `session_prefix`, the command table gains `/state`, and Settings gains the "会话状态" page.
 
 > A source install needs Node ≥ 22.5 and runs the build (`tsc` + `esbuild`, producing `dist/` and `lib/client.js`). On pnpm ≥ 10, allow that build (`pnpm approve-builds`, or add this package to `onlyBuiltDependencies`).
 
 ## Screenshots
 
-![Sessions in different states in the sidebar](assets/screenshot-1-session-states.png)
+![Sessions in different states in the sidebar](assets/screenshot-1-session-prefixes.png)
 
 ![The "会话状态" settings page](assets/screenshot-2-settings.png)
 

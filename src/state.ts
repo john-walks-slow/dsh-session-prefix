@@ -311,7 +311,7 @@ export interface SessionTitleEventPayload {
 }
 
 /** 会话日志里最新一条 `session/title`，或 undefined。 */
-function latestSessionTitleOf(session: AutoTitledSession): SessionTitleEventPayload | undefined {
+export function latestSessionTitleOf(session: AutoTitledSession): SessionTitleEventPayload | undefined {
   if (typeof session.snapshotEvents !== "function") return undefined;
   const events = session.snapshotEvents();
   for (let index = events.length - 1; index >= 0; index -= 1) {
@@ -319,6 +319,75 @@ function latestSessionTitleOf(session: AutoTitledSession): SessionTitleEventPayl
     if (event?.type === "session/title" && event.data !== undefined) return event.data;
   }
   return undefined;
+}
+
+/**
+ * 自动推断（如 Jev）应用状态到会话标题：
+ * - 若会话最新标题来源是自动生成（fallback 或 provider），则保持其 source 原样 append，
+ *   绝不触发 `user` rename 的 supersede，保护后台 Title Provider 正常运作；
+ * - 若已是用户命名，或尚无标题事件，则通过正常 `sessionTitle.rename` 更新；
+ * - 同时维护 tracker.assigned。
+ */
+export function applyInferredSessionState(
+  ctx: Context,
+  session: AutoTitledSession,
+  rawState: string,
+  tracker: StateTracker,
+  settings: SettingsSnapshot,
+): boolean {
+  const resolution = resolveTargetState(rawState, settings);
+  const latest = latestSessionTitleOf(session);
+  const rawCurrentTitle = latest?.title ?? fallbackTitleFromEvents(session);
+  const parsed = parseTitleState(rawCurrentTitle, settings);
+  const baseTitle = parsed.baseTitle.length > 0 ? parsed.baseTitle : (rawCurrentTitle.trim() || EMPTY_BASE_TITLE);
+
+  let nextTitle: string;
+  let targetState: MatchedState | null = null;
+
+  if (resolution.kind === "clear") {
+    nextTitle = baseTitle;
+  } else {
+    targetState = resolution.target;
+    nextTitle = `${targetState.prefix} ${baseTitle}`;
+  }
+
+  const prefixed = truncateUtf8(nextTitle, MAX_TITLE_UTF8_BYTES);
+  if (prefixed === rawCurrentTitle) {
+    return false;
+  }
+
+  const recordTrackerSuccess = () => {
+    if (targetState !== null) {
+      tracker.cleared.delete(session.id);
+      tracker.assigned.set(session.id, targetState);
+    } else {
+      tracker.cleared.add(session.id);
+      tracker.assigned.delete(session.id);
+    }
+  };
+
+  const sourceKind = latest?.source?.kind;
+  if (latest !== undefined && (sourceKind === "fallback" || sourceKind === "provider") && typeof session.append === "function") {
+    // 保持原 source 追加，绝不打断后台 LLM Title Provider
+    session.append("session/title", {
+      title: prefixed,
+      messageSeqs: Array.isArray(latest.messageSeqs) ? [...latest.messageSeqs] : [],
+      source: latest.source,
+    });
+    recordTrackerSuccess();
+    return true;
+  }
+
+  // 否则调用常规 sessionTitle.rename
+  const sessions = requireSessions(ctx);
+  const titles = requireSessionTitles(ctx);
+  const liveSession = sessions.get(session.id as SessionId);
+  if (liveSession) {
+    titles.rename(liveSession, prefixed);
+    recordTrackerSuccess();
+    return true;
+  }
+  return false;
 }
 
 /**

@@ -1,14 +1,14 @@
-# `dsh-session-state` 需求调研与实现计划
+# `session-prefix` 需求调研与实现计划
 
 ## 1. 背景与目标
 
-参考 `dsh-manage-session` 的架构与工程实践，开发独立 DSH 插件项目 **`dsh-session-state`**（位于 `/root/projects/dsh-session-state`）。
+参考 `dsh-manage-session` 的架构与工程实践，开发独立 DSH 插件项目 **`session-prefix`**（位于 `/root/projects/session-prefix`）。
 
 核心目标：
 - 通过在会话标题（`session/title`）前添加/替换/剥离**可自定义的状态前缀**（默认是一组直观的 Emoji），标记会话当前的项目状态。
 - 支持**新会话默认状态（`defaultState`）**：默认设为 `"wip"`（`🚧`），也可在设置页选择其他任意状态或 `"none"`（不自动添加状态前缀）。
 - **纯视觉标记，无任何其他行为副作用**：不改变会话生命周期、不阻断回合、不打断宿主后台的自动标题生成（LLM Title Provider），以会话标题本身作为唯一事实来源（Single Source of Truth）。
-- 同时提供**面向用户的斜杠命令**（`/state`）与**面向 Agent 的模型工具**（`session_state`），以及**Web 插件设置页**（支持选择新会话默认状态、自定义状态列表、前缀、工具开关与给模型的 Operator Instructions）。
+- 同时提供**面向用户的斜杠命令**（`/state`）与**面向 Agent 的模型工具**（`session_prefix`），以及**Web 插件设置页**（支持选择新会话默认状态、自定义状态列表、前缀、工具开关与给模型的 Operator Instructions）。
 
 ---
 
@@ -69,17 +69,17 @@
   移除当前会话标题的状态前缀，回执：`Cleared session state prefix; title is now "修复登录问题".`
 - 名称（`label`）与前缀（`prefix`）只用于展示与拼接，**不作为入参**，避免同一件事有多种写法。
 
-### 3.3 路径二：Agent 调用 `session_state` 工具
-- 工具名：`session_state`
+### 3.3 路径二：Agent 调用 `session_prefix` 工具
+- 工具名：`session_prefix`
 - 参数：
   - `state` (`string`, 必填)：状态 key（如 `"wip"`, `"blocked"`, `"review"`, `"done"`, `"plan"`, `"bug"`），或 `"none"` / `"clear"` 清除状态。参数描述会根据当前设置动态生成可用状态 key 清单。
   - `session_id` (`string`, 可选)：目标会话 ID，省略时作用于当前会话（仅限 live 会话）。
 
 ### 3.4 路径三：Web 插件设置页（「会话状态」）
-在设置面板挂载 `settings.section`（entry id: `session-state`，标签：`会话状态`）：
-1. **工具开关（`enabled`）**：启用/禁用 `session_state` 模型工具。
+在设置面板挂载 `settings.section`（entry id: `session-prefix`，标签：`会话状态`）：
+1. **工具开关（`enabled`）**：启用/禁用 `session_prefix` 模型工具。
 2. **新会话默认状态（`defaultState`）**：下拉选择框，选项包括 `none（不自动标记）` 以及当前状态列表中所有状态（默认选中 `wip — 🚧 进行中`）。
-3. **工具自定义指令（`instructions`）**：追加到 `session_state` 描述尾部的 `Operator instructions for this tool`，最多 2000 字。
+3. **工具自定义指令（`instructions`）**：追加到 `session_prefix` 描述尾部的 `Operator instructions for this tool`，最多 2000 字。
 4. **状态预设列表编辑器（`states`）**：
    - 可视化列表展示每一项的 `前缀 (prefix)`、`键值 (key)`、`名称 (label)`、`说明 (description)`；
    - 支持直接修改任意状态的 emoji/文字前缀、名称与说明；
@@ -89,21 +89,21 @@
 
 ## 4. 架构与模块设计
 
-项目路径：`/root/projects/dsh-session-state`
+项目路径：`/root/projects/session-prefix`
 
 ```
-dsh-session-state/
-├── package.json              # 包名 dsh-session-state，peerDeps 对齐 dsh-tools / schemastery
-├── cordis.patch.yml          # insert: [{ id: session-state, name: dsh-session-state }]
+session-prefix/
+├── package.json              # 包名 session-prefix，peerDeps 对齐 dsh-tools / schemastery
+├── cordis.patch.yml          # insert: [{ id: session-prefix, name: session-prefix }]
 ├── tsconfig.json             # 类型检查配置（含 src/ 与 src/client/）
 ├── tsconfig.build.json       # 构建 dist/（排除 src/client/）
 ├── scripts/
-│   └── build-client.mjs      # esbuild 打包 src/client/index.ts -> lib/client.js（id: "dsh-session-state"）
+│   └── build-client.mjs      # esbuild 打包 src/client/index.ts -> lib/client.js（id: "session-prefix"）
 ├── src/
 │   ├── index.ts              # 插件入口：inject=["tools"]，装配工具、命令、turn/start 同步与 session/title 默认状态挂钩
 │   ├── config.ts             # Volatile Config 定义（enabled, defaultState, instructions, states）
 │   ├── state.ts              # 核心领域逻辑：标题前缀解析、剥离、替换、自动标题挂载默认状态与 rename 调用
-│   ├── tools.ts              # defineTool("session_state") 定义，动态拼接状态表与自定义指令
+│   ├── tools.ts              # defineTool("session_prefix") 定义，动态拼接状态表与自定义指令
 │   ├── assembly.ts           # turn/start 工具表对齐（syncTools / disposeTools）
 │   ├── commands.ts           # /state 命令注册与解析
 │   ├── services.ts           # 懒取 sessions / sessionTitle 服务
@@ -111,11 +111,11 @@ dsh-session-state/
 │   ├── text.ts               # oneLine / quoted 文本整形
 │   ├── errors.ts             # SessionTitleInvalidError 等按 error.name 识别
 │   └── client/
-│       ├── index.ts          # 挂载 settings.section (id: "session-state")
+│       ├── index.ts          # 挂载 settings.section (id: "session-prefix")
 │       ├── settings-panel.tsx# 会话状态设置面板（工具开关 + 默认状态选择 + 指令 + 状态列表增删改）
 │       └── styles.ts         # 面板样式（命名空间前缀 dss-*）
 ├── test/
-│   └── session-state.test.mjs# 全面单测（假宿主：默认状态自动挂载、前缀替换/剥离/防叠罗汉、空白兜底、自定义状态、命令、装配）
+│   └── session-prefix.test.mjs# 全面单测（假宿主：默认状态自动挂载、前缀替换/剥离/防叠罗汉、空白兜底、自定义状态、命令、装配）
 ├── AGENTS.md                 # 项目级开发指引
 ├── README.md                 # 中文说明文档
 └── README.en.md              # 英文说明文档

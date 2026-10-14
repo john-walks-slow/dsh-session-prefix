@@ -24,7 +24,7 @@ await build({
 const body = await readFile(outBundle, "utf8");
 const wrapped = [
   "window.__ModuleLoader__.load({",
-  '\tid: "dsh-session-state",',
+  '\tid: "session-prefix",',
   "\tfactory: (require) => {",
   "\t\tvar module = { exports: {} };",
   "\t\tvar exports = module.exports;",
