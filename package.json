@@ -58,11 +58,11 @@
   "author": "johnnren",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/john-walks-slow/session-prefix.git"
+    "url": "git+https://github.com/john-walks-slow/dsh-session-prefix.git"
   },
-  "homepage": "https://github.com/john-walks-slow/session-prefix#readme",
+  "homepage": "https://github.com/john-walks-slow/dsh-session-prefix#readme",
   "bugs": {
-    "url": "https://github.com/john-walks-slow/session-prefix/issues"
+    "url": "https://github.com/john-walks-slow/dsh-session-prefix/issues"
   },
   "engines": {
     "node": ">=22.5"

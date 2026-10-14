@@ -317,7 +317,7 @@ export async function queryJevState(
     headers: {
       Authorization: `Bearer ${credentials.apiKey}`,
       "Content-Type": "application/json",
-      "HTTP-Referer": "https://github.com/john-walks-slow/session-prefix",
+      "HTTP-Referer": "https://github.com/john-walks-slow/dsh-session-prefix",
       "X-Title": "session-prefix",
     },
     body: JSON.stringify(payload),
