@@ -175,6 +175,9 @@ function createFakeHost(configOverrides = {}) {
   if (configOverrides.activeState !== undefined) {
     config.activeState = volatileCell(configOverrides.activeState);
   }
+  if (configOverrides.skipPattern !== undefined) {
+    config.skipPattern = volatileCell(configOverrides.skipPattern);
+  }
   if (configOverrides.jevEnabled !== undefined) {
     config.jevEnabled = volatileCell(configOverrides.jevEnabled);
   }
@@ -343,6 +346,115 @@ test("defaultState=none skips automatic prefixing on new sessions", async () => 
   assert.equal(host.sessionTitle.get(session)?.title, "无默认状态的新会话");
 
   host.dispose();
+});
+
+test("skipPattern keeps titles that carry their own leading label out of every automatic path", async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ answers: { state: { type: "choice", choice: "bug", confidence: 0.95 } } }),
+    };
+  };
+  try {
+    const host = createFakeHost({ defaultState: "wip", jevEnabled: true, jevApiKey: "mock-key" });
+    const session = host.addLiveSession("s-im", { initialTitle: "Telegram · 隧道不稳定" });
+
+    // 1. 新会话默认状态不挂：fallback 与 provider 两次自动标题都保持原样
+    session.append("session/title", {
+      title: "Telegram · 隧道不稳定",
+      messageSeqs: [1],
+      source: { kind: "fallback" },
+    });
+    await tick();
+    assert.equal(host.sessionTitle.get(session).title, "Telegram · 隧道不稳定");
+
+    session.append("session/title", {
+      title: "Telegram · 隧道频繁断连",
+      messageSeqs: [1],
+      source: { kind: "provider" },
+    });
+    await tick();
+    assert.equal(host.sessionTitle.get(session).title, "Telegram · 隧道频繁断连");
+
+    // 2. 回合开始不回落，人类指令落库后也不发起 Jev 决策请求
+    host.emit("session/event", session, { type: "turn/start" });
+    await flushTurnWork();
+    session.append("user/message", {
+      content: [{ type: "text", text: "帮我看下隧道为什么断" }],
+      source: { kind: "user" },
+    });
+    await flushTurnWork();
+    assert.equal(calls, 0, "skip 规则命中的标题不应发起 Jev 决策请求");
+    assert.equal(host.sessionTitle.get(session).title, "Telegram · 隧道频繁断连");
+
+    // 3. 显式工具调用不受规则限制
+    const tool = host.tools.get("session_prefix");
+    const applied = await tool.execute({ state: "bug" }, { agent: { session } });
+    assert.equal(applied.title, "🐛 Telegram · 隧道频繁断连");
+
+    // 4. 显式打标之后，自动回落依然对这类标题停手
+    host.emit("session/event", session, { type: "turn/start" });
+    await flushTurnWork();
+    assert.equal(host.sessionTitle.get(session).title, "🐛 Telegram · 隧道频繁断连");
+
+    host.dispose();
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("skipPattern is configurable: empty turns the rule off, custom and invalid patterns behave predictably", async () => {
+  // 默认规则就是「行首标签 · 内容」
+  assert.equal(readSettings(undefined).skipPattern, "^\\S+ · ");
+
+  // 留空 = 关闭规则，自动前缀照旧
+  const offHost = createFakeHost({ defaultState: "wip", skipPattern: "" });
+  const offSession = offHost.addLiveSession("s-rule-off");
+  offSession.append("session/title", {
+    title: "Telegram · 隧道不稳定",
+    messageSeqs: [1],
+    source: { kind: "fallback" },
+  });
+  await tick();
+  assert.equal(offHost.sessionTitle.get(offSession).title, "🚧 Telegram · 隧道不稳定");
+  offHost.dispose();
+
+  // 自定义规则：只认方括号标签
+  const customHost = createFakeHost({ defaultState: "wip", skipPattern: "^\\[IM\\]" });
+  const bracketed = customHost.addLiveSession("s-bracket");
+  bracketed.append("session/title", {
+    title: "[IM] 隧道不稳定",
+    messageSeqs: [1],
+    source: { kind: "fallback" },
+  });
+  await tick();
+  assert.equal(customHost.sessionTitle.get(bracketed).title, "[IM] 隧道不稳定");
+
+  const dotted = customHost.addLiveSession("s-dotted");
+  dotted.append("session/title", {
+    title: "Telegram · 隧道不稳定",
+    messageSeqs: [1],
+    source: { kind: "fallback" },
+  });
+  await tick();
+  assert.equal(customHost.sessionTitle.get(dotted).title, "🚧 Telegram · 隧道不稳定");
+  customHost.dispose();
+
+  // 非法正则视为关闭，绝不让设置错误打断自动状态
+  const badHost = createFakeHost({ defaultState: "wip", skipPattern: "(" });
+  const badSession = badHost.addLiveSession("s-bad-rule");
+  badSession.append("session/title", {
+    title: "Telegram · 隧道不稳定",
+    messageSeqs: [1],
+    source: { kind: "fallback" },
+  });
+  await tick();
+  assert.equal(badHost.sessionTitle.get(badSession).title, "🚧 Telegram · 隧道不稳定");
+  badHost.dispose();
 });
 
 test("volatile settings hot-reload the tool on turn/start", async () => {

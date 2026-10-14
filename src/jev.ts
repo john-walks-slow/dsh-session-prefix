@@ -3,7 +3,8 @@
  * - 在本回合首条人类消息（`user/message`，`source.kind === "user"`）与 `turn/end` 事件节点调用 TypeSafe Jev 决策模型；
  * - 从插件设置（jevApiKey/jevBaseUrl/jevModel）或环境变量（JEV_API_KEY/JEV_BASE_URL/JEV_MODEL）解析凭据；
  * - 将配置的状态表动态映射为 Jev 的 Choice Criteria，获取置信度与分类选择；
- * - 当置信度达标且状态改变时，异步回写会话标题前缀（保留 provider/fallback source，不打断后台 LLM 起名）。
+ * - 当置信度达标且状态改变时，异步回写会话标题前缀（保留 provider/fallback source，不打断后台 LLM 起名）；
+ * - 标题命中插件设置里的跳过规则（`skipPattern`，如 IM 桥接写入的行首标签）时不发起请求。
  */
 import type { Context } from "@deepseek-ai/cordis";
 import { DEFAULT_STATES, type SettingsSnapshot, type StatePreset } from "./config.js";
@@ -11,6 +12,7 @@ import {
   applyInferredSessionState,
   latestSessionTitleOf,
   parseTitleState,
+  shouldSkipAutoPrefix,
   type AutoTitledSession,
   type StateTracker,
 } from "./state.js";
@@ -469,6 +471,13 @@ export async function runJevStateInference(
 
   const initialSettings = resolveSettings(settingsProvider);
   if (!initialSettings.jevEnabled) {
+    manager.abortSession(session.id);
+    return false;
+  }
+
+  // 自带行首标签的标题（如 IM 桥接的 `Telegram · xxx`）本就不自动加前缀，不必再花一次决策请求
+  const initialTitle = latestSessionTitleOf(session)?.title ?? "";
+  if (shouldSkipAutoPrefix(parseTitleState(initialTitle, initialSettings).baseTitle, initialSettings)) {
     manager.abortSession(session.id);
     return false;
   }

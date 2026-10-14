@@ -1,5 +1,5 @@
 /**
- * 插件设置：工具开关、新会话默认状态、自定义指令、以及状态预设表。
+ * 插件设置：工具开关、新会话默认状态、回合进行中状态、标题跳过规则、自定义指令、以及状态预设表。
  *
  * 所有顶层字段均标记 `.volatile()`，以便 Web 设置页（`dsh-settings`）投影并即时写回运行中的配置引用。
  * 工具表描述在每个 `turn/start` 前按最新设置快照对齐（见 `assembly.ts`）。
@@ -73,6 +73,16 @@ export const DEFAULT_STATES: readonly StatePreset[] = [
 /** 表示“不自动设置默认状态 / 清除状态”的保留关键字。 */
 export const CLEAR_KEYWORDS = ["none", "clear", "off", "无", "清除"] as const;
 
+/**
+ * 默认的标题跳过规则：行首「标签 · 内容」形式（如 IM 桥接写入的 `Telegram · xxx`）。
+ *
+ * 这类标题的标签由别的系统持有并要求它保持行首，本插件不再自动加/改状态前缀。
+ */
+export const DEFAULT_SKIP_PATTERN = "^\\S+ · ";
+
+/** 跳过规则的输入长度上限（码点）。 */
+export const SKIP_PATTERN_LIMIT = 200;
+
 const StatePresetSchema = z.object({
   key: z.string().required(),
   prefix: z.string().required(),
@@ -91,6 +101,7 @@ export const Config = z.object({
   jevNoneCriteria: z.string().default("").volatile(),
   defaultState: z.string().default("wip").volatile(),
   activeState: z.string().default("wip").volatile(),
+  skipPattern: z.string().default(DEFAULT_SKIP_PATTERN).volatile(),
   instructions: z.string().default("").volatile(),
   states: z
     .array(StatePresetSchema)
@@ -120,6 +131,11 @@ export interface SettingsSnapshot {
   readonly defaultState: string;
   /** 回合进行中的状态 key（宿主恢复执行时回落）；`"none"` 表示不回落。 */
   readonly activeState: string;
+  /**
+   * 标题跳过规则（正则源码）：标题剥离本插件状态前缀后命中该规则时，不再自动加/改状态前缀；
+   * 空串表示该规则关闭。
+   */
+  readonly skipPattern: string;
   readonly instructions: string;
   readonly states: readonly StatePreset[];
 }
@@ -140,6 +156,7 @@ export interface SettingsConfig {
   readonly jevNoneCriteria?: VolatileLike<string>;
   readonly defaultState?: VolatileLike<string>;
   readonly activeState?: VolatileLike<string>;
+  readonly skipPattern?: VolatileLike<string>;
   readonly instructions?: VolatileLike<string>;
   readonly states?: VolatileLike<readonly StatePreset[]>;
 }
@@ -170,6 +187,7 @@ export function readSettings(config: SettingsConfig | undefined): SettingsSnapsh
       typeof config?.jevNoneCriteria?.get() === "string" ? config.jevNoneCriteria.get().trim() : "",
     defaultState: sanitizeStateKey(config?.defaultState?.get(), states),
     activeState: sanitizeStateKey(config?.activeState?.get(), states),
+    skipPattern: sanitizeSkipPattern(config?.skipPattern?.get()),
     instructions: sanitizeInstruction(config?.instructions?.get()),
     states,
   };
@@ -257,4 +275,12 @@ export function sanitizeInstruction(raw: unknown): string {
     .trim();
   const points = [...flat];
   return points.length <= INSTRUCTION_LIMIT ? flat : `${points.slice(0, INSTRUCTION_LIMIT).join("")}…`;
+}
+
+/** 跳过规则整形：字段缺失时用默认规则，显式留空表示关闭；不做正则校验（编译失败即视为关闭）。 */
+export function sanitizeSkipPattern(raw: unknown): string {
+  if (typeof raw !== "string") return DEFAULT_SKIP_PATTERN;
+  const cleaned = raw.replace(/[\r\n\t]+/gu, " ").trim();
+  const points = [...cleaned];
+  return points.length <= SKIP_PATTERN_LIMIT ? cleaned : points.slice(0, SKIP_PATTERN_LIMIT).join("");
 }

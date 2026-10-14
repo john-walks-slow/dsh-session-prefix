@@ -8,7 +8,8 @@ Features:
 - **Default state for new sessions**: Automatically prefixes newly titled sessions with your chosen default state (defaults to `wip` `🚧`, or choose any state / `none`), without interrupting background LLM title generation;
 - **Agent tool `session_prefix`**: Lets the agent set a session's state by key as task phases change;
 - **User command `/state`**: View, switch, or clear the current session's state prefix by key at any time;
-- **Web Settings panel ("会话状态")**: Add, edit, or remove custom states (key, prefix, label, description), pick the default state for new sessions, toggle the model tool, and configure custom operator instructions;
+- **Title skip rule**: titles that already carry their own leading label (e.g. `Telegram · xxx` written by an IM bridge) are left untouched by every automatic prefixing path — the rule is a regex you can edit in Settings;
+- **Web Settings panel ("会话状态")**: Add, edit, or remove custom states (key, prefix, label, description), pick the default state for new sessions, edit the title skip rule, toggle the model tool, and configure custom operator instructions;
 - **Sidebar search filtering**: Type any state badge (e.g. `🚧`, `✅`, `👀`) into the native DSH sidebar search box to filter sessions by state immediately.
 
 ## Install
@@ -42,6 +43,7 @@ No manual configuration is needed: the bundled `cordis.patch.yml` mounts automat
 ## Permissions and compatibility
 
 - **No network, no local file access, no external services.** The only write is appending one `session/title` event to the target session's own log (the host's own rename path).
+- **Title skip rule (`skipPattern`)**: when a title matches the regex after this plugin's own state prefix is stripped (default `^\S+ · `, i.e. titles that already start with their own label such as `Telegram · xxx`), every **automatic** path (new-session default state, running-state fallback, Jev inference) leaves it alone — the label has to stay first, and pushing it aside makes the other system re-add it as `Telegram · 🚧 Telegram · xxx`. Explicit `/state` and tool calls are never blocked; clear the field to disable the rule.
 - Only acts on **live** sessions in the current process (your own, or one open in the GUI); it never resumes a cold session.
 - Requires a dsh host that provides the `sessionTitle` service (`@deepseek-ai/dsh-base` ships it). Without a `commands` service, `/state` is not registered and everything else keeps working.
 

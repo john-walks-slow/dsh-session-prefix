@@ -4,7 +4,8 @@
  * - 状态只按 `key` 选择（外加 `none` / `clear` 清除），名称与前缀仅用于展示；
  * - 切换状态时先剥离已有前缀再拼接新前缀，杜绝多个前缀叠加；
  * - 监听宿主自动生成的 `fallback` / `provider` 标题事件，为新会话自动挂载 `defaultState` 前缀，
- *   并在异步 LLM 标题生成完成时保持状态前缀不丢失、且不打断后台自动起名。
+ *   并在异步 LLM 标题生成完成时保持状态前缀不丢失、且不打断后台自动起名；
+ * - 命中 `skipPattern` 的标题（自带行首标签，如 IM 桥接的 `Telegram · xxx`）不参与上述自动行为。
  */
 import type { Context } from "@deepseek-ai/cordis";
 import type { SessionId } from "@deepseek-ai/dsh-session";
@@ -116,6 +117,36 @@ export function parseTitleState(rawTitle: string, settings: SettingsSnapshot): P
     baseTitle: remaining,
     fullTitle,
   };
+}
+
+/** 解析结果的正则缓存：同一份规则字符串只编译一次。 */
+const compiledSkipPatterns = new Map<string, RegExp | null>();
+
+function compileSkipPattern(pattern: string): RegExp | null {
+  if (pattern.length === 0) return null;
+  const cached = compiledSkipPatterns.get(pattern);
+  if (cached !== undefined) return cached;
+  let compiled: RegExp | null = null;
+  try {
+    compiled = new RegExp(pattern);
+  } catch {
+    compiled = null;
+  }
+  compiledSkipPatterns.set(pattern, compiled);
+  return compiled;
+}
+
+/**
+ * 标题是否要跳过自动状态前缀。
+ *
+ * 判断对象是**剥离本插件状态前缀之后的裸标题**：命中规则说明标题自带别家的行首标签
+ * （典型是 IM 桥接写入的 `Telegram · xxx`），而那个标签必须留在行首——
+ * 一旦被状态前缀顶开，对方会重新补标签，最终叠成 `Telegram · 🚧 Telegram · xxx`。
+ * 因此命中规则的标题一律不自动加/改状态前缀；用户显式 `/state` 或模型工具调用不受影响。
+ */
+export function shouldSkipAutoPrefix(baseTitle: string, settings: SettingsSnapshot): boolean {
+  const pattern = compileSkipPattern(settings.skipPattern);
+  return pattern !== null && pattern.test(baseTitle);
 }
 
 /**
@@ -326,6 +357,7 @@ export function latestSessionTitleOf(session: AutoTitledSession): SessionTitleEv
  * - 若会话最新标题来源是自动生成（fallback 或 provider），则保持其 source 原样 append，
  *   绝不触发 `user` rename 的 supersede，保护后台 Title Provider 正常运作；
  * - 若已是用户命名，或尚无标题事件，则通过正常 `sessionTitle.rename` 更新；
+ * - 命中 `skipPattern` 的标题直接跳过；
  * - 同时维护 tracker.assigned。
  */
 export function applyInferredSessionState(
@@ -339,6 +371,8 @@ export function applyInferredSessionState(
   const latest = latestSessionTitleOf(session);
   const rawCurrentTitle = latest?.title ?? fallbackTitleFromEvents(session);
   const parsed = parseTitleState(rawCurrentTitle, settings);
+  // 自带行首标签（如 IM 桥接的 `Telegram · xxx`）的标题不参与任何自动前缀变更
+  if (shouldSkipAutoPrefix(parsed.baseTitle, settings)) return false;
   const baseTitle = parsed.baseTitle.length > 0 ? parsed.baseTitle : (rawCurrentTitle.trim() || EMPTY_BASE_TITLE);
 
   let nextTitle: string;
@@ -448,6 +482,9 @@ export function handleAutoSessionTitleEvent(
   }
 
   const parsed = parseTitleState(latest.title, settings);
+  if (shouldSkipAutoPrefix(parsed.baseTitle, settings)) {
+    return false;
+  }
   if (parsed.state !== null) {
     // 标题已经带有已知状态前缀，同步记录即可，不再重复追加
     tracker.assigned.set(session.id, parsed.state);

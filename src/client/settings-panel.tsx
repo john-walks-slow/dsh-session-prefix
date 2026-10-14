@@ -2,9 +2,10 @@
  * 「会话状态」插件设置面板：
  * 1. 新会话默认状态下拉选择（默认 `wip`，可选 `none` 或任意已配置状态）；
  * 2. 回合进行中状态下拉选择（`activeState`，默认 `wip`）；
- * 3. Jev 自动状态推断开关（`jevEnabled`，本回合首条人类指令落库后与回合结束自动判定）；
- * 4. 模型工具 `session_prefix` 启用开关（`toolEnabled`）+ 自定义指令；
- * 5. 状态预设表（`states`）可视化增、删、改与一键恢复默认。
+ * 3. 标题跳过规则（`skipPattern`）：命中该正则的标题不再自动加/改状态前缀；
+ * 4. Jev 自动状态推断开关（`jevEnabled`，本回合首条人类指令落库后与回合结束自动判定）；
+ * 5. 模型工具 `session_prefix` 启用开关（`toolEnabled`）+ 自定义指令；
+ * 6. 状态预设表（`states`）可视化增、删、改与一键恢复默认。
  */
 import * as React from "react";
 import { installStyles } from "./styles.js";
@@ -27,6 +28,7 @@ export interface SessionStateSettings {
   jevNoneCriteria?: string;
   defaultState: string;
   activeState: string;
+  skipPattern: string;
   instructions: string;
   states: ClientStatePreset[];
 }
@@ -50,6 +52,9 @@ export interface SettingsScope<T> {
 
 export type SessionStateScope = SettingsScope<SessionStateSettings>;
 
+/** 与 `config.ts` 的 `DEFAULT_SKIP_PATTERN` 对齐：设置项未被显式覆盖时，输入框展示这条内置默认规则。 */
+const DEFAULT_SKIP_PATTERN = "^\\S+ · ";
+
 const FALLBACK_STATES: ClientStatePreset[] = [
   { key: "wip", prefix: "🚧", label: "进行中", description: "正在编码、实施或执行任务" },
   { key: "blocked", prefix: "⏸️", label: "等待/阻塞", description: "等待用户确认、审批、外部输入或遇到阻塞" },
@@ -58,6 +63,17 @@ const FALLBACK_STATES: ClientStatePreset[] = [
   { key: "plan", prefix: "💡", label: "规划/调研", description: "正在进行需求调研、方案设计或讨论" },
   { key: "bug", prefix: "🐛", label: "排障/修复", description: "正在定位问题、排查故障或修复缺陷" },
 ];
+
+/** 校验跳过规则：合法或留空返回 `null`，否则返回给用户看的错误文案。 */
+function skipPatternIssue(pattern: string): string | null {
+  if (pattern.trim().length === 0) return null;
+  try {
+    new RegExp(pattern);
+    return null;
+  } catch (error) {
+    return `正则无效：${error instanceof Error ? error.message : String(error)}`;
+  }
+}
 
 export interface SessionStatePanelProps {
   close?: () => void;
@@ -69,6 +85,7 @@ export function SessionStatePanel(props: SessionStatePanelProps): React.ReactEle
   const { scope } = props;
   const [snapshot, setSnapshot] = React.useState<SettingsScopeSnapshot<SessionStateSettings>>(scope.getSnapshot());
   const [instructionDraft, setInstructionDraft] = React.useState<string | null>(null);
+  const [skipPatternDraft, setSkipPatternDraft] = React.useState<string | null>(null);
   const [statesDraft, setStatesDraft] = React.useState<ClientStatePreset[] | null>(null);
   const [jevApiKeyDraft, setJevApiKeyDraft] = React.useState<string | null>(null);
   const [jevBaseUrlDraft, setJevBaseUrlDraft] = React.useState<string | null>(null);
@@ -107,6 +124,27 @@ export function SessionStatePanel(props: SessionStatePanelProps): React.ReactEle
   const savedInstructions = String(value.instructions ?? "");
   const currentInstructions = instructionDraft ?? savedInstructions;
   const instructionsDirty = currentInstructions !== savedInstructions;
+
+  // 未被显式覆盖时快照可能不含默认值，此处按内置默认规则展示，避免让「规则生效中」看起来像关闭
+  const savedSkipPattern = overridden("skipPattern")
+    ? String(value.skipPattern ?? "")
+    : DEFAULT_SKIP_PATTERN;
+  const currentSkipPattern = skipPatternDraft ?? savedSkipPattern;
+  const skipPatternDirty = currentSkipPattern !== savedSkipPattern;
+  const skipPatternInvalid = skipPatternIssue(currentSkipPattern);
+
+  const saveSkipPattern = async (): Promise<void> => {
+    if (skipPatternInvalid !== null) {
+      setFeedback({ kind: "err", text: skipPatternInvalid });
+      return;
+    }
+    await saveField(
+      "skipPattern",
+      currentSkipPattern.trim(),
+      "已保存：命中该规则的标题不再自动加状态前缀。",
+    );
+    setSkipPatternDraft(null);
+  };
 
   const isToolEnabled =
     value.toolEnabled !== undefined ? value.toolEnabled !== false : value.enabled !== false;
@@ -231,6 +269,7 @@ export function SessionStatePanel(props: SessionStatePanelProps): React.ReactEle
     try {
       await scope.unset(field);
       if (field === "instructions") setInstructionDraft(null);
+      if (field === "skipPattern") setSkipPatternDraft(null);
       if (field === "states") setStatesDraft(null);
       setFeedback({ kind: "ok", text: "已恢复默认值。" });
     } catch (error) {
@@ -379,6 +418,53 @@ export function SessionStatePanel(props: SessionStatePanelProps): React.ReactEle
         "p",
         { className: "dss-hint" },
         "宿主又开始驱动某个会话（你追问、或后台任务唤醒它继续跑）时，先把标题前缀回落到该状态（默认 wip 🚧），表示它已不在等你。",
+      ),
+      React.createElement(
+        "div",
+        { className: "dss-row" },
+        React.createElement("span", { className: "dss-title" }, "标题跳过规则"),
+        overridden("skipPattern")
+          ? React.createElement(
+              "button",
+              {
+                type: "button",
+                className: "dss-reset",
+                disabled: !writable || busy,
+                onClick: () => void resetField("skipPattern"),
+              },
+              "恢复默认",
+            )
+          : null,
+      ),
+      React.createElement("input", {
+        className: "dss-input",
+        type: "text",
+        placeholder: "正则，例如 ^\\S+ · （留空即关闭该规则）",
+        value: currentSkipPattern,
+        disabled: !writable || busy,
+        onChange: (event: React.ChangeEvent<HTMLInputElement>) => setSkipPatternDraft(event.target.value),
+      }),
+      React.createElement(
+        "p",
+        { className: "dss-hint" },
+        "标题剥离本插件的状态前缀后命中该正则时，本插件不再自动加/改状态前缀——给自带行首标签的标题让路，例如 IM 桥接写入的 Telegram · xxx（把标签顶开会诱发对方重复补标签）。留空即关闭。",
+      ),
+      skipPatternInvalid === null
+        ? null
+        : React.createElement("p", { className: "dss-error" }, skipPatternInvalid),
+      React.createElement(
+        "div",
+        { className: "dss-row dss-actions" },
+        React.createElement(
+          "button",
+          {
+            type: "button",
+            className: "dss-save",
+            disabled: !writable || busy || !skipPatternDirty || skipPatternInvalid !== null,
+            onClick: () => void saveSkipPattern(),
+          },
+          "保存规则",
+        ),
       ),
     ),
     // 卡片 2：Jev 自动状态推断开关
