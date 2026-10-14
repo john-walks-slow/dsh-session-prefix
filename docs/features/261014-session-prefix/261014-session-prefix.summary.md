@@ -74,6 +74,7 @@
 
 ## 待办（按判断暂不推）
 
-- **npm 发布**：`session-prefix@0.1.0` 尚未上 registry，线上仍是 link install；按 `npm-publish` 技能指纹流程另起一次。
-- **失效工作区行清理**：`~/.dsh/storages/workspace.json:3625` 仍指向旧目录，会在侧边栏显示一条空工作区；可手动清理。
+- ~~**npm 发布**~~：✅ `session-prefix@0.1.0` 已上 registry（https://registry.npmjs.org/session-prefix/-/session-prefix-0.1.0.tgz，21.3 kB）；`dist-tags.latest = 0.1.0`；新名首发必经的 0.0.0-stage 占位 stub 持续约 50 秒后让位给真实版本，stub 长期保留但不影响安装（见 root memory「npm 首次发布新包名」条目）。registry 上同时存在旧 `dsh-session-state@0.1.0`，按用户要求保留作为历史记录。
+- ~~**git push**~~：✅ `9401aaa` 已推 origin（仓库 `john-walks-slow/dsh-session-state` 已用 `gh repo rename` 改名为 `john-walks-slow/session-prefix`，旧 URL 301 重定向到新名）。
+- **失效工作区行清理**：`~/.dsh/storages/workspace.json:3625` 仍指向旧路径，侧边栏会有一条空工作区；可手动清理。
 - **历史文档精细化**：`docs/features/261013-session-prefix/*` 与 issue 总结之间有口径差异，未来可补一份对账说明。
