@@ -172,6 +172,9 @@ function createFakeHost(configOverrides = {}) {
   if (configOverrides.toolEnabled !== undefined) {
     config.toolEnabled = volatileCell(configOverrides.toolEnabled);
   }
+  if (configOverrides.activeState !== undefined) {
+    config.activeState = volatileCell(configOverrides.activeState);
+  }
   if (configOverrides.jevEnabled !== undefined) {
     config.jevEnabled = volatileCell(configOverrides.jevEnabled);
   }
@@ -436,36 +439,45 @@ test("toolEnabled and jevEnabled switches operate independently", async () => {
   host.dispose();
 });
 
-test("extractTurnContext accurately extracts context for start and end phases", () => {
+test("extractTurnContext keeps the human instruction and ignores harness injections", () => {
+  const longOutcome = `故障已定位并修复。${"补充说明。".repeat(400)}最终结论：工作已完成，等你确认。`;
   const events = [
     {
       seq: 1,
       type: "user/message",
-      data: { content: [{ type: "text", text: "请修复登录页面表单提交白屏的问题" }] },
+      data: {
+        source: { kind: "user" },
+        content: [{ type: "text", text: "请修复登录页面表单提交白屏的问题" }],
+      },
     },
     {
       seq: 2,
-      type: "assistant/message",
+      type: "user/message",
       data: {
-        message: { content: [{ type: "text", text: "已定位原因并在 AuthService 中修复了空指针异常，测试通过。" }] },
+        source: { kind: "runtime-context" },
+        content: [{ type: "text", text: "注入的快照内容，不应被当成用户指令" }],
       },
+    },
+    {
+      seq: 3,
+      type: "assistant/message",
+      data: { message: { content: [{ type: "text", text: longOutcome }] } },
     },
   ];
 
-  const fakeSession = {
-    id: "s-ctx",
-    snapshotEvents: () => events,
-  };
+  const fakeSession = { id: "s-ctx", snapshotEvents: () => events };
 
   const startCtx = extractTurnContext(fakeSession, "start");
-  assert.match(startCtx, /Current user instruction:/);
-  assert.match(startCtx, /Previous assistant response:/);
-  assert.match(startCtx, /请修复登录页面表单提交白屏的问题/);
+  assert.match(startCtx, /Current user instruction:\n请修复登录页面表单提交白屏的问题/);
+  assert.doesNotMatch(startCtx, /注入的快照内容/);
 
   const endCtx = extractTurnContext(fakeSession, "end");
-  assert.match(endCtx, /User instruction:/);
+  assert.match(endCtx, /User instruction:\n请修复登录页面表单提交白屏的问题/);
   assert.match(endCtx, /Assistant outcome:/);
-  assert.match(endCtx, /已定位原因并在 AuthService 中修复了空指针异常/);
+  // 超长产出被尾部截断，但人类指令必须完整保留
+  assert.match(endCtx, /请修复登录页面表单提交白屏的问题/);
+  assert.match(endCtx, /最终结论：工作已完成，等你确认。/);
+  assert.ok(endCtx.length <= 2100, `context should stay within budget, got ${endCtx.length}`);
 });
 
 test("probeJevEndpoint resolves the environment credential and reports latency", async () => {
@@ -556,6 +568,77 @@ test("apply registers the Jev probe route and serves a host-side probe result", 
   }
 });
 
+/** 等插件内部 queueMicrotask 与假 fetch 链落地。 */
+const flushTurnWork = () => new Promise((resolve) => setTimeout(resolve, 10));
+
+test("turn/start falls back to the running state whenever the host resumes the session", async () => {
+  const host = createFakeHost({ defaultState: "none" });
+  const session = host.addLiveSession("s-resume", { initialTitle: "⏸️ 部署验证" });
+
+  host.emit("session/event", session, { type: "turn/start" });
+  await flushTurnWork();
+  assert.equal(host.sessionTitle.get(session).title, "🚧 部署验证");
+
+  // 已是执行态：不再重复写入
+  const writes = session.snapshotEvents().length;
+  host.emit("session/event", session, { type: "turn/start" });
+  await flushTurnWork();
+  assert.equal(session.snapshotEvents().length, writes);
+
+  // 从未打标的会话不会被强行加上前缀
+  const plain = host.addLiveSession("s-plain", { initialTitle: "随手记一笔" });
+  host.emit("session/event", plain, { type: "turn/start" });
+  await flushTurnWork();
+  assert.equal(host.sessionTitle.get(plain).title, "随手记一笔");
+
+  host.dispose();
+
+  // activeState=none：完全不回落
+  const offHost = createFakeHost({ defaultState: "none", activeState: "none" });
+  const offSession = offHost.addLiveSession("s-nofallback", { initialTitle: "⏸️ 部署验证" });
+  offHost.emit("session/event", offSession, { type: "turn/start" });
+  await flushTurnWork();
+  assert.equal(offHost.sessionTitle.get(offSession).title, "⏸️ 部署验证");
+  offHost.dispose();
+});
+
+test("only human user messages trigger the Jev start inference", async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ answers: { state: { type: "choice", choice: "bug", confidence: 0.93 } } }),
+    };
+  };
+  try {
+    const host = createFakeHost({ jevEnabled: true, jevApiKey: "mock-key", defaultState: "none" });
+    const session = host.addLiveSession("s-human", { initialTitle: "网关排障" });
+
+    session.append("user/message", {
+      content: [{ type: "text", text: "实时快照，不该被当作指令" }],
+      source: { kind: "runtime-context" },
+    });
+    await flushTurnWork();
+    assert.equal(calls, 0, "harness injections must not trigger inference");
+    assert.equal(host.sessionTitle.get(session).title, "网关排障");
+
+    session.append("user/message", {
+      content: [{ type: "text", text: "网关 500，帮我定位" }],
+      source: { kind: "user" },
+    });
+    await flushTurnWork();
+    assert.equal(calls, 1, "human input should trigger exactly one inference");
+    assert.equal(host.sessionTitle.get(session).title, "🐛 网关排障");
+
+    host.dispose();
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("Jev automatic state inference updates session titles at turn/start and turn/end", async () => {
   const originalFetch = globalThis.fetch;
   let simulatedChoice = "bug";
@@ -590,6 +673,7 @@ test("Jev automatic state inference updates session titles at turn/start and tur
     const session = host.addLiveSession("s-jev", { initialTitle: "用户中心服务" });
     session.append("user/message", {
       content: [{ type: "text", text: "系统报错 500，登录功能故障，请定位排查" }],
+      source: { kind: "user" },
     });
 
     // 1. 回合开始：Jev 识别为 bug
@@ -675,7 +759,10 @@ test("B-01: Late Jev responses from earlier generation never overwrite newer sta
     const tracker = createStateTracker();
     const settings = readSettings(host.config);
     const session = host.addLiveSession("s-race", { initialTitle: "核心支付" });
-    session.append("user/message", { content: [{ type: "text", text: "支付超时，请处理" }] });
+    session.append("user/message", {
+      content: [{ type: "text", text: "支付超时，请处理" }],
+      source: { kind: "user" },
+    });
 
     // 发起第 1 次推断（挂起）
     const p1 = runJevStateInference(host.ctx, session, "start", tracker, settings);
@@ -726,7 +813,7 @@ test("B-02: Jev automatic inference preserves provider/fallback title source wit
         {
           seq: 2,
           type: "user/message",
-          data: { content: [{ type: "text", text: "我们来规划一下新架构" }] },
+          data: { content: [{ type: "text", text: "我们来规划一下新架构" }], source: { kind: "user" } },
         },
       ],
     });
@@ -760,7 +847,10 @@ test("B-03 & B-04: Single source of truth and strict Decisions response validati
     const tracker = createStateTracker();
     const settings = readSettings(host.config);
     const session = host.addLiveSession("s-guard", { initialTitle: "订单服务" });
-    session.append("user/message", { content: [{ type: "text", text: "检查订单状态" }] });
+    session.append("user/message", {
+      content: [{ type: "text", text: "检查订单状态" }],
+      source: { kind: "user" },
+    });
 
     // 1. 非 choice 类型响应
     mockResponse = { answers: { state: { type: "text", text: "bug" } } };
@@ -802,7 +892,10 @@ test("B-08: Reject non-finite, negative, or greater-than-1 confidence values", a
     const tracker = createStateTracker();
     const settings = readSettings(host.config);
     const session = host.addLiveSession("s-finite", { initialTitle: "风控系统" });
-    session.append("user/message", { content: [{ type: "text", text: "检查异常拦截" }] });
+    session.append("user/message", {
+      content: [{ type: "text", text: "检查异常拦截" }],
+      source: { kind: "user" },
+    });
 
     // 1. confidence: Infinity
     mockResponse = { answers: { state: { type: "choice", choice: "bug", confidence: Infinity } } };
@@ -853,7 +946,10 @@ test("B-07: In-flight request is rejected at commit time if jevEnabled becomes f
     const host = createFakeHost({ jevEnabled: true, jevApiKey: "mock-key", defaultState: "none" });
     const tracker = createStateTracker();
     const session = host.addLiveSession("s-live-disable", { initialTitle: "消息网关" });
-    session.append("user/message", { content: [{ type: "text", text: "网关排障" }] });
+    session.append("user/message", {
+      content: [{ type: "text", text: "网关排障" }],
+      source: { kind: "user" },
+    });
 
     // 1. 发起请求 A（使用动态配置 getter，挂起在飞行中）
     const p1 = runJevStateInference(host.ctx, session, "start", tracker, () => readSettings(host.config));

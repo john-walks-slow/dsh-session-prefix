@@ -1,9 +1,10 @@
 /**
  * 「会话状态」插件设置面板：
  * 1. 新会话默认状态下拉选择（默认 `wip`，可选 `none` 或任意已配置状态）；
- * 2. Jev 自动状态推断开关（`jevEnabled`，回合开始与回合结束自动判定）；
- * 3. 模型工具 `session_prefix` 启用开关（`toolEnabled`）+ 自定义指令；
- * 4. 状态预设表（`states`）可视化增、删、改与一键恢复默认。
+ * 2. 回合进行中状态下拉选择（`activeState`，默认 `wip`）；
+ * 3. Jev 自动状态推断开关（`jevEnabled`，本回合首条人类指令落库后与回合结束自动判定）；
+ * 4. 模型工具 `session_prefix` 启用开关（`toolEnabled`）+ 自定义指令；
+ * 5. 状态预设表（`states`）可视化增、删、改与一键恢复默认。
  */
 import * as React from "react";
 import { installStyles } from "./styles.js";
@@ -25,6 +26,7 @@ export interface SessionStateSettings {
   jevInstructions?: string;
   jevNoneCriteria?: string;
   defaultState: string;
+  activeState: string;
   instructions: string;
   states: ClientStatePreset[];
 }
@@ -198,6 +200,9 @@ export function SessionStatePanel(props: SessionStatePanelProps): React.ReactEle
   const currentDefaultState = typeof value.defaultState === "string" && value.defaultState.length > 0
     ? value.defaultState
     : "wip";
+  const currentActiveState = typeof value.activeState === "string" && value.activeState.length > 0
+    ? value.activeState
+    : "wip";
 
   const saveField = async <K extends keyof SessionStateSettings>(
     field: K,
@@ -331,6 +336,50 @@ export function SessionStatePanel(props: SessionStatePanelProps): React.ReactEle
         { className: "dss-hint" },
         "新会话首次自动生成标题时自动冠上该状态前缀（默认 wip 🚧），且不会打断后台 LLM 自动生成标题。",
       ),
+      React.createElement(
+        "div",
+        { className: "dss-row" },
+        React.createElement("span", { className: "dss-title" }, "回合进行中状态"),
+        React.createElement(
+          "div",
+          { className: "dss-row" },
+          React.createElement(
+            "select",
+            {
+              className: "dss-select",
+              value: currentActiveState,
+              disabled: !writable || busy,
+              onChange: (event: React.ChangeEvent<HTMLSelectElement>) =>
+                void saveField("activeState", event.target.value),
+            },
+            React.createElement("option", { value: "none" }, "none（不自动回落）"),
+            ...savedStates.map((item) =>
+              React.createElement(
+                "option",
+                { key: item.key, value: item.key },
+                `${item.prefix} ${item.label} (${item.key})`,
+              ),
+            ),
+          ),
+          overridden("activeState")
+            ? React.createElement(
+                "button",
+                {
+                  type: "button",
+                  className: "dss-reset",
+                  disabled: !writable || busy,
+                  onClick: () => void resetField("activeState"),
+                },
+                "恢复默认",
+              )
+            : null,
+        ),
+      ),
+      React.createElement(
+        "p",
+        { className: "dss-hint" },
+        "宿主又开始驱动某个会话（你追问、或后台任务唤醒它继续跑）时，先把标题前缀回落到该状态（默认 wip 🚧），表示它已不在等你。",
+      ),
     ),
     // 卡片 2：Jev 自动状态推断开关
     React.createElement(
@@ -371,7 +420,7 @@ export function SessionStatePanel(props: SessionStatePanelProps): React.ReactEle
       React.createElement(
         "p",
         { className: "dss-hint" },
-        "在回合开始（捕捉用户新意图）与回合结束（评估助手交付成果）两个节点，自动调用 TypeSafe Jev 快决策模型推断项目状态并平滑更新会话标题前缀。支持配置自定义端点与凭据，或通过 JEV_API_KEY 环境变量自动获取。",
+        "在本回合首条人类指令落库后（捕捉新意图）与回合结束（评估助手交付成果）两个节点，自动调用 TypeSafe Jev 快决策模型推断项目状态并平滑更新会话标题前缀。支持配置自定义端点与凭据，或通过 JEV_API_KEY 环境变量自动获取。",
       ),
       isJevEnabled
         ? React.createElement(

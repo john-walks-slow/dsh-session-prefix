@@ -90,6 +90,7 @@ export const Config = z.object({
   jevInstructions: z.string().default("").volatile(),
   jevNoneCriteria: z.string().default("").volatile(),
   defaultState: z.string().default("wip").volatile(),
+  activeState: z.string().default("wip").volatile(),
   instructions: z.string().default("").volatile(),
   states: z
     .array(StatePresetSchema)
@@ -117,6 +118,8 @@ export interface SettingsSnapshot {
   readonly jevNoneCriteria: string;
   /** 新会话默认状态 key；`"none"` 表示不自动添加状态前缀。 */
   readonly defaultState: string;
+  /** 回合进行中的状态 key（宿主恢复执行时回落）；`"none"` 表示不回落。 */
+  readonly activeState: string;
   readonly instructions: string;
   readonly states: readonly StatePreset[];
 }
@@ -136,6 +139,7 @@ export interface SettingsConfig {
   readonly jevInstructions?: VolatileLike<string>;
   readonly jevNoneCriteria?: VolatileLike<string>;
   readonly defaultState?: VolatileLike<string>;
+  readonly activeState?: VolatileLike<string>;
   readonly instructions?: VolatileLike<string>;
   readonly states?: VolatileLike<readonly StatePreset[]>;
 }
@@ -164,7 +168,8 @@ export function readSettings(config: SettingsConfig | undefined): SettingsSnapsh
       typeof config?.jevInstructions?.get() === "string" ? config.jevInstructions.get().trim() : "",
     jevNoneCriteria:
       typeof config?.jevNoneCriteria?.get() === "string" ? config.jevNoneCriteria.get().trim() : "",
-    defaultState: sanitizeDefaultState(config?.defaultState?.get(), states),
+    defaultState: sanitizeStateKey(config?.defaultState?.get(), states),
+    activeState: sanitizeStateKey(config?.activeState?.get(), states),
     instructions: sanitizeInstruction(config?.instructions?.get()),
     states,
   };
@@ -193,10 +198,10 @@ export function sanitizeStates(raw: unknown): readonly StatePreset[] {
 }
 
 /**
- * 归一化新会话默认状态：只认状态 key（不区分大小写）或 `"none"`；
+ * 归一化一个状态 key 配置项（新会话默认状态、回合进行中状态）：只认状态 key（不区分大小写）或 `"none"`；
  * 无法识别时回落到 `"wip"`（若存在），否则 `"none"`。
  */
-export function sanitizeDefaultState(raw: unknown, states: readonly StatePreset[]): string {
+export function sanitizeStateKey(raw: unknown, states: readonly StatePreset[]): string {
   const fallback = states.some((item) => item.key === "wip") ? "wip" : "none";
   if (typeof raw !== "string") return fallback;
   const trimmed = raw.trim();

@@ -391,6 +391,35 @@ export function applyInferredSessionState(
 }
 
 /**
+ * 回合开始时的执行态回落。
+ *
+ * 宿主又开始驱动这个会话——无论人类追问还是后台任务唤醒——都说明它已不在「等用户」，
+ * 因此先把前缀从静止态（⏸️/👀/✅）拉回执行态（`activeState`，默认 🚧）。
+ * 本回合若出现新的人类指令，随后由 Jev 重新精判（见 `runJevStateInference(..., "start", ...)`）。
+ *
+ * 只对「已带状态前缀且不是执行态」的会话生效：从未打标的会话不会被强行加上前缀。
+ */
+export function applyTurnStartState(
+  ctx: Context,
+  session: AutoTitledSession,
+  tracker: StateTracker,
+  settings: SettingsSnapshot,
+): boolean {
+  if (session.header?.parentSession !== undefined || session.header?.origin === "subagent") {
+    return false;
+  }
+  if (settings.activeState === "none") return false;
+
+  const latest = latestSessionTitleOf(session);
+  const currentTitle = latest?.title ?? fallbackTitleFromEvents(session);
+  const parsed = parseTitleState(currentTitle, settings);
+  if (parsed.state === null) return false;
+  if (parsed.state.key.toLowerCase() === settings.activeState.toLowerCase()) return false;
+
+  return applyInferredSessionState(ctx, session, settings.activeState, tracker, settings);
+}
+
+/**
  * 宿主自动生成标题后的写回钩子。
  *
  * **必须在 `session/event` 回调之外（microtask）调用**：宿主 `Session.append` 在发布事件期间带

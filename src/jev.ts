@@ -1,6 +1,6 @@
 /**
  * Jev 自动状态推断客户端与调度器：
- * - 在 `turn/start` 与 `turn/end` 事件节点调用 TypeSafe Jev 决策模型；
+ * - 在本回合首条人类消息（`user/message`，`source.kind === "user"`）与 `turn/end` 事件节点调用 TypeSafe Jev 决策模型；
  * - 从插件设置（jevApiKey/jevBaseUrl/jevModel）或环境变量（JEV_API_KEY/JEV_BASE_URL/JEV_MODEL）解析凭据；
  * - 将配置的状态表动态映射为 Jev 的 Choice Criteria，获取置信度与分类选择；
  * - 当置信度达标且状态改变时，异步回写会话标题前缀（保留 provider/fallback source，不打断后台 LLM 起名）。
@@ -183,7 +183,36 @@ function extractTextFromBlocks(content: unknown): string {
 /** 上下文总长度截断上限（字符数）。 */
 export const MAX_TURN_CONTEXT_CHARS = 2000;
 
-/** 从会话快照中提取供 Jev 决策使用的最近上下文（整体合并后尾部对齐截断 end-align）。 */
+/** 人类指令在上下文中的保留上限（保头部）；其余预算留给上轮回复/本轮产出（保尾部）。 */
+const MAX_INSTRUCTION_CHARS = 800;
+
+/** 非指令那一侧的保底预算，避免被超长指令挤没。 */
+const MIN_COUNTERPART_CHARS = 400;
+
+/** 上下文中标签与分隔符占用的预算。 */
+const CONTEXT_LABEL_OVERHEAD = 80;
+
+/** 保留文本头部（截断处省略）。 */
+function truncateHead(text: string, maxChars: number): string {
+  const points = [...text];
+  return points.length <= maxChars ? text : `${points.slice(0, maxChars).join("")}…`;
+}
+
+/** 保留文本尾部（截断处省略）。 */
+function truncateTail(text: string, maxChars: number): string {
+  const points = [...text];
+  return points.length <= maxChars ? text : `…${points.slice(-maxChars).join("")}`;
+}
+
+/**
+ * 从会话快照中提取供 Jev 决策使用的最近上下文。
+ *
+ * 指令一侧只认人类消息（`source.kind === "user"`）：宿主的注入消息（runtime-context / mnemon /
+ * 消息时间 / tool-jobs / 指令快照等）紧跟在人类消息之后落库，若不排除，倒序扫描会先命中它们，
+ * 真正的指令反而被挤出预算。
+ *
+ * 两段各自保号：指令保头部（决定「在做什么」），上轮回复/本轮产出保尾部（结尾通常是结论或提问）。
+ */
 export function extractTurnContext(session: AutoTitledSession, phase: "start" | "end"): string {
   if (typeof session.snapshotEvents !== "function") return "";
   const events = session.snapshotEvents();
@@ -198,6 +227,7 @@ export function extractTurnContext(session: AutoTitledSession, phase: "start" | 
       data?: {
         content?: unknown;
         message?: { content?: unknown };
+        source?: { kind?: string };
       };
     } | undefined;
     if (!ev || !ev.type) continue;
@@ -207,7 +237,7 @@ export function extractTurnContext(session: AutoTitledSession, phase: "start" | 
       latestAssistantText = extractTextFromBlocks(content);
     }
 
-    if (!latestUserText && ev.type === "user/message") {
+    if (!latestUserText && ev.type === "user/message" && ev.data?.source?.kind === "user") {
       const content = ev.data?.content ?? ev.data?.message?.content;
       latestUserText = extractTextFromBlocks(content);
     }
@@ -219,23 +249,23 @@ export function extractTurnContext(session: AutoTitledSession, phase: "start" | 
 
   if (!latestUserText && !latestAssistantText) return "";
 
-  let combined = "";
-  if (phase === "start") {
-    // 回合开始：考虑用户可能只回了“好的/go”，将上轮模型输出与本轮用户指令合并，并从尾部对齐截断
-    combined = latestAssistantText
-      ? `Previous assistant response:\n${latestAssistantText}\n\nCurrent user instruction:\n${latestUserText}`
-      : `Current user instruction:\n${latestUserText}`;
-  } else {
-    // 回合结束：将本轮用户指令与本轮助手交付成果合并，从尾部对齐截断
-    combined = latestUserText
-      ? `User instruction:\n${latestUserText}\n\nAssistant outcome:\n${latestAssistantText}`
-      : `Assistant outcome:\n${latestAssistantText}`;
-  }
+  const instruction = truncateHead(latestUserText, MAX_INSTRUCTION_CHARS);
+  const counterpartBudget = Math.max(
+    MIN_COUNTERPART_CHARS,
+    MAX_TURN_CONTEXT_CHARS - [...instruction].length - CONTEXT_LABEL_OVERHEAD,
+  );
+  const counterpart = truncateTail(latestAssistantText, counterpartBudget);
 
-  if (combined.length > MAX_TURN_CONTEXT_CHARS) {
-    return combined.slice(-MAX_TURN_CONTEXT_CHARS);
+  if (phase === "start") {
+    // 回合开始：上轮模型输出（保尾部，结尾通常是它交给用户的提问）+ 本轮人类指令
+    return counterpart
+      ? `Previous assistant response:\n${counterpart}\n\nCurrent user instruction:\n${instruction}`
+      : `Current user instruction:\n${instruction}`;
   }
-  return combined;
+  // 回合结束：本轮人类指令 + 本轮助手交付成果
+  return instruction
+    ? `User instruction:\n${instruction}\n\nAssistant outcome:\n${counterpart}`
+    : `Assistant outcome:\n${counterpart}`;
 }
 
 /** 判定请求中可覆盖的两段文案；省略时用内置默认。 */
@@ -419,7 +449,7 @@ function resolveSettings(provider: SettingsProvider): SettingsSnapshot {
  * - 验证会话是否合法（非子代理、Live 会话）；
  * - 若 Jev 禁用、缺少凭据或上下文为空，彻底取消并失效之前的旧请求；
  * - generation 递增守护，淘汰旧请求竞态；
- * - 提取最新上下文并调用 Jev 进行状态决策；
+ * - 提取最新上下文（`start` = 上轮产出 + 本回合人类指令，`end` = 本回合指令 + 本轮产出）并调用 Jev 决策；
  * - 提交前核验 generation 并实时重新读取最新配置确认 jevEnabled 依然有效；
  * - 以会话当前标题为唯一事实来源比较状态；
  * - 通过 applyInferredSessionState 更新标题（保持 fallback/provider source 不被打断）。

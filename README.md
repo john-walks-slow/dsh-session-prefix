@@ -42,10 +42,11 @@ dsh plugin --profile web add link:/path/to/session-prefix
 ## 权限与兼容
 
 - **状态持久化**：唯一的内部写入是往目标会话日志追加 `session/title` 事件（宿主自己的标题修改事件）。
-- **Jev 自动状态推断**：当开启 `jevEnabled`（默认开启）时，插件会在每个回合开始与回合结束节点调用 TypeSafe Jev 快决策模型（`typesafe/jev-1.13`，经 OpenRouter Decisions API），自动识别项目所处阶段并更新标题前缀。
-  - **凭据优先级**：插件配置（`jevApiKey`） → 环境变量（`OPENROUTER_API_KEY`） → 系统密码本（`~/.config/api-vault/vault.json` 中的 `openrouter.key`）。若均未配置则静默跳过，绝不报错打断正常会话。
+- **Jev 自动状态推断**：当开启 `jevEnabled`（默认开启）时，插件会在**回合进行中**与**回合结束**两个节点调用 TypeSafe Jev 快决策模型（`typesafe/jev-1.13`，经 OpenRouter Decisions API），自动识别项目所处阶段并更新标题前缀。
+  - **回合开始先回落执行态**：宿主又开始驱动某个会话（你追问，或后台任务唤醒它继续跑）时，先把前缀从静止态（⏸️/👀/✅）回落到 `activeState`（默认 `wip`），立刻反映「它已不在等你」；本回合的助手产出与你的新指令会在回合结束/指令落库后再精判。从未打标的会话不会被强行加前缀，`activeState: none` 可关闭该行为。
+  - **凭据优先级**：插件设置 `jevApiKey` → 环境变量 `JEV_API_KEY`（端点与模型同理：`jevBaseUrl`/`jevModel` → `JEV_BASE_URL`/`JEV_MODEL`）。若均未配置则静默跳过，绝不报错打断正常会话。
   - **接口与模型**：默认调用 `https://openrouter.ai/api/alpha/decisions`（可通过配置项 `jevBaseUrl` 覆写完整 Decisions API endpoint URL），默认决策模型为 `typesafe/jev-1.13`（可通过 `jevModel` 覆写）。
-  - **上下文裁剪**：每次仅截取用户最新提问（≤ 1000 字）及助手末尾总结（≤ 1000 字），绝不外发全量历史长文本。
+  - **上下文裁剪**：每次只取你最近一条人类指令（保头部，≤ 800 字符）与助手最近一条产出（保尾部），宿主注入的运行时快照/记忆/时间等消息一律排除，绝不外发全量历史长文本。
   - **平滑协同**：推断更新采用与宿主自动标题对齐的来源标记，绝不打断后台正在运行的 LLM 自动起名 Provider。
 - **作用范围**：只作用于当前进程内 **live** 的会话（你自己，或 GUI 里打开着的会话）；不会为冷会话拉起 agent，也不会给子代理会话增加前缀。
 - 需要提供 `sessionTitle` 服务的 dsh 宿主（`@deepseek-ai/dsh-base` 自带）。宿主没有 `commands` 服务时 `/state` 不注册，其余功能照常。
@@ -88,7 +89,8 @@ dsh plugin --profile web add link:/path/to/session-prefix
 
 打开 **Settings → 会话状态**：
 - 选择**新会话默认状态**（默认 `wip`，可选 `none` 或任意自定义状态）；
-- 开关 **Jev 自动状态推断**（在回合开始与回合结束自动分析意图与产出，自动更新会话状态前缀）；
+- 选择**回合进行中状态**（`activeState`，默认 `wip`；宿主恢复执行某个会话时前缀回落到它，可选 `none` 关闭）；
+- 开关 **Jev 自动状态推断**（在本回合首条人类指令落库后与回合结束自动分析意图与产出，自动更新会话状态前缀）；
 - 开关 **`session_prefix` 模型工具**并配置给 Agent 的自定义触发指令（如：`开始实施时设为 wip，等待用户验收时设为 review，完工后设为 done`）；
 - **增、删、改**状态预设列表（每项含 key、前缀、名称、说明），或一键恢复默认状态集。所有修改在保存后的下一个回合立即生效。
 

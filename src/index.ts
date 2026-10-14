@@ -4,6 +4,8 @@
  * - 面向用户的命令：`/state`
  * - 新会话默认状态：监听 `session/title` 的 `fallback`/`provider` 事件自动挂载默认状态前缀，
  *   不打断后台自动标题生成，且在 LLM 生成新标题后自动衔接状态前缀
+ * - 状态自动推断：回合开始回落执行态（`turn/start`，宿主已恢复执行）、本回合首条人类指令落库后
+ *   与回合结束（`turn/end`）调用 Jev 判定，详见 `./jev.ts` 与 `./state.ts`
  * - Web 插件设置页：开关工具、选择新会话默认状态、配置自定义指令、可视化增删改状态列表
  */
 import type { Context } from "@deepseek-ai/cordis";
@@ -13,6 +15,7 @@ import { registerStateCommand } from "./commands.js";
 import { readSettings, type SettingsConfig } from "./config.js";
 import { abortAllJevInferences, JevInferenceManager, probeJevEndpoint, runJevStateInference } from "./jev.js";
 import {
+  applyTurnStartState,
   createStateTracker,
   handleAutoSessionTitleEvent,
   type AutoTitledSession,
@@ -88,6 +91,25 @@ export function apply(ctx: Context, config?: SettingsConfig): () => void {
       ) => {
         if (event.type === "turn/start") {
           syncTools(ctx, tracker, readSettings(config), registered, config);
+          // 宿主在 `turn/start` 之后才落库本回合的人类输入（见 dsh-agent-loop 的 turn()/首个 step），
+          // 所以这里不做内容推断：只按「宿主又开始驱动这个会话」回落执行态，
+          // 等人类指令真正落库后（user/message）再让 Jev 精判。
+          queueMicrotask(() => {
+            try {
+              applyTurnStartState(ctx, session, tracker, readSettings(config));
+            } catch (error) {
+              ctx.logger.warn(
+                `session-prefix: failed to reset the running state on turn/start for ${session.id}: ${String(error)}`,
+              );
+            }
+          });
+          return;
+        }
+
+        if (event.type === "user/message") {
+          // 只有人类的输入才是「新指令」；runtime-context / mnemon / 消息时间 / tool-jobs 等注入要排除。
+          const source = (event.data as { readonly source?: { readonly kind?: string } } | undefined)?.source;
+          if (source?.kind !== "user") return;
           queueMicrotask(() => {
             void runJevStateInference(ctx, session, "start", tracker, () => readSettings(config), jevManager).catch((error) => {
               ctx.logger.warn(
