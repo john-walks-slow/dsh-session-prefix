@@ -1,7 +1,7 @@
 /**
  * Market screenshots: build a sidebar with several sessions in different states
  * (renamed to readable titles and badged via /state), then capture the sidebar and
- * the "会话状态" settings page into assets/.
+ * the "会话前缀" settings page into assets/.
  *
  * Runs against the isolated e2e instance only. Sessions are created with a tiny prompt
  * (a title-only session still counts as blank and stays out of the sidebar), then
@@ -127,12 +127,12 @@ try {
   }
   console.log(`wrote ${shot}`);
 
-  // Settings page: sidebar footer entry → "会话状态" section.
+  // Settings page: sidebar footer entry → "会话前缀" section.
   const settingsButton = page.locator('[aria-label="Settings"], button:has-text("Settings")').first();
   if ((await settingsButton.count()) > 0) {
     await settingsButton.click({ timeout: 10000 }).catch(() => undefined);
     await page.waitForTimeout(1500);
-    const entry = page.getByText("会话状态", { exact: true }).first();
+    const entry = page.getByText("会话前缀", { exact: true }).first();
     if ((await entry.count()) > 0) {
       await entry.click({ timeout: 10000 }).catch(() => undefined);
       await page.waitForTimeout(2000);

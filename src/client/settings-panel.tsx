@@ -1,5 +1,5 @@
 /**
- * 「会话状态」插件设置面板：
+ * 「会话前缀」插件设置面板：
  * 1. 新会话默认状态下拉选择（默认 `wip`，可选 `none` 或任意已配置状态）；
  * 2. 回合进行中状态下拉选择（`activeState`，默认 `wip`）；
  * 3. 标题跳过规则（`skipPattern`）：命中该正则的标题不再自动加/改状态前缀；
@@ -100,7 +100,7 @@ export function SessionStatePanel(props: SessionStatePanelProps): React.ReactEle
   React.useEffect(() => scope.subscribe(() => setSnapshot(scope.getSnapshot())), [scope]);
 
   if (snapshot.status === "loading") {
-    return React.createElement("div", { className: "dss-note" }, "正在加载会话状态设置…");
+    return React.createElement("div", { className: "dss-note" }, "正在加载会话前缀设置…");
   }
   if (snapshot.status === "unavailable") {
     return React.createElement(

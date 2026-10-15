@@ -9,7 +9,7 @@ Features:
 - **Agent tool `session_prefix`**: Lets the agent set a session's state by key as task phases change;
 - **User command `/state`**: View, switch, or clear the current session's state prefix by key at any time;
 - **Title skip rule**: titles that already carry their own leading label (e.g. `Telegram · xxx` written by an IM bridge) are left untouched by every automatic prefixing path — the rule is a regex you can edit in Settings;
-- **Web Settings panel ("会话状态")**: Add, edit, or remove custom states (key, prefix, label, description), pick the default state for new sessions, edit the title skip rule, toggle the model tool, and configure custom operator instructions;
+- **Web Settings panel ("会话前缀")**: Add, edit, or remove custom states (key, prefix, label, description), pick the default state for new sessions, edit the title skip rule, toggle the model tool, and configure custom operator instructions;
 - **Sidebar search filtering**: Type any state badge (e.g. `🚧`, `✅`, `👀`) into the native DSH sidebar search box to filter sessions by state immediately.
 
 ## Install
@@ -30,7 +30,7 @@ From a local checkout:
 dsh plugin --profile web add link:/path/to/session-prefix
 ```
 
-No manual configuration is needed: the bundled `cordis.patch.yml` mounts automatically — the model tool table gains `session_prefix`, the command table gains `/state`, and Settings gains the "会话状态" page.
+No manual configuration is needed: the bundled `cordis.patch.yml` mounts automatically — the model tool table gains `session_prefix`, the command table gains `/state`, and Settings gains the "会话前缀" page.
 
 > A source install needs Node ≥ 22.5 and runs the build (`tsc` + `esbuild`, producing `dist/` and `lib/client.js`). On pnpm ≥ 10, allow that build (`pnpm approve-builds`, or add this package to `onlyBuiltDependencies`).
 
@@ -38,7 +38,7 @@ No manual configuration is needed: the bundled `cordis.patch.yml` mounts automat
 
 ![Sessions in different states in the sidebar](assets/screenshot-1-session-prefixes.png)
 
-![The "会话状态" settings page](assets/screenshot-2-settings.png)
+![The "会话前缀" settings page](assets/screenshot-2-settings.png)
 
 ## Permissions and compatibility
 

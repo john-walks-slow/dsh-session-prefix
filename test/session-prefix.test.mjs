@@ -805,15 +805,15 @@ test("Jev automatic state inference updates session titles at turn/start and tur
     assert.equal(updatedEnd, true);
     assert.equal(host.sessionTitle.get(session).title, "✅ 用户中心服务");
 
-    // 3. 置信度过低时：不应触发更新
+    // 3. 不设置信度阈值（总是采纳）：低置信度（如 0.45）依然采纳更新
     simulatedChoice = "plan";
     simulatedConfidence = 0.45;
     const lowConfidenceResult = await runJevStateInference(host.ctx, session, "start", tracker, settings);
-    assert.equal(lowConfidenceResult, false);
-    assert.equal(host.sessionTitle.get(session).title, "✅ 用户中心服务"); // 依然保持原状态
+    assert.equal(lowConfidenceResult, true);
+    assert.equal(host.sessionTitle.get(session).title, "💡 用户中心服务");
 
     // 4. 重复状态：不触发额外更新
-    simulatedChoice = "done";
+    simulatedChoice = "plan";
     simulatedConfidence = 0.95;
     const sameStateResult = await runJevStateInference(host.ctx, session, "end", tracker, settings);
     assert.equal(sameStateResult, false);
@@ -947,12 +947,22 @@ test("B-02: Jev automatic inference preserves provider/fallback title source wit
 test("B-03 & B-04: Single source of truth and strict Decisions response validation", async () => {
   const originalFetch = globalThis.fetch;
   let mockResponse = {};
+  let lastPayload = null;
 
-  globalThis.fetch = async () => ({
-    ok: true,
-    status: 200,
-    json: async () => mockResponse,
-  });
+  globalThis.fetch = async (_url, options) => {
+    if (options?.body) {
+      try {
+        lastPayload = JSON.parse(options.body);
+      } catch {
+        lastPayload = null;
+      }
+    }
+    return {
+      ok: true,
+      status: 200,
+      json: async () => mockResponse,
+    };
+  };
 
   try {
     const host = createFakeHost({ jevEnabled: true, jevApiKey: "mock-key", defaultState: "none" });
@@ -974,6 +984,13 @@ test("B-03 & B-04: Single source of truth and strict Decisions response validati
 
     // 3. 不在 criteria 内的非法 choice
     mockResponse = { answers: { state: { type: "choice", choice: "unknown-key", confidence: 1 } } };
+    assert.equal(await runJevStateInference(host.ctx, session, "start", tracker, settings), false);
+
+    // 3.1 验证 criteria 绝不包含 "none"（不教 Jev 选择 none）
+    assert.equal("none" in (lastPayload?.questions?.state?.criteria ?? {}), false);
+
+    // 3.2 验证即使 Jev 返回 "none"，也不被采纳
+    mockResponse = { answers: { state: { type: "choice", choice: "none", confidence: 1 } } };
     assert.equal(await runJevStateInference(host.ctx, session, "start", tracker, settings), false);
 
     // 4. B-03 验证：外部重命名将状态去掉后，哪怕 tracker 仍有记录，也以标题当前真实无状态为准进行更新

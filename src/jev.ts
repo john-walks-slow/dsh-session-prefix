@@ -2,8 +2,8 @@
  * Jev 自动状态推断客户端与调度器：
  * - 在本回合首条人类消息（`user/message`，`source.kind === "user"`）与 `turn/end` 事件节点调用 TypeSafe Jev 决策模型；
  * - 从插件设置（jevApiKey/jevBaseUrl/jevModel）或环境变量（JEV_API_KEY/JEV_BASE_URL/JEV_MODEL）解析凭据；
- * - 将配置的状态表动态映射为 Jev 的 Choice Criteria，获取置信度与分类选择；
- * - 当置信度达标且状态改变时，异步回写会话标题前缀（保留 provider/fallback source，不打断后台 LLM 起名）；
+ * - 将配置的状态表动态映射为 Jev 的 Choice Criteria，获取分类选择（不包含 none，防止误清除前缀）；
+ * - 当状态改变时，异步回写会话标题前缀（总是采纳 Jev 决策，保留 provider/fallback source，不打断后台 LLM 起名）；
  * - 标题命中插件设置里的跳过规则（`skipPattern`，如 IM 桥接写入的行首标签）时不发起请求。
  */
 import type { Context } from "@deepseek-ai/cordis";
@@ -17,9 +17,6 @@ import {
   type StateTracker,
 } from "./state.js";
 
-/** Jev 决策判定的默认置信度阈值。 */
-export const JEV_CONFIDENCE_THRESHOLD = 0.7;
-
 /** 默认的 Jev Decisions API 终端节点。 */
 export const DEFAULT_JEV_BASE_URL = "https://openrouter.ai/api/alpha/decisions";
 
@@ -29,10 +26,6 @@ export const DEFAULT_JEV_MODEL = "typesafe/jev-1.13";
 /** 默认的 Jev 判定问题文案。 */
 export const DEFAULT_JEV_INSTRUCTIONS =
   "What is the current project/task state or phase for this conversation based on the context?";
-
-/** 默认的 none（无适用状态）选项说明。 */
-export const DEFAULT_JEV_NONE_CRITERIA =
-  "No specific project state applies, or task is neutral/cleared";
 
 /** Jev 请求超时时间（毫秒）。 */
 const JEV_REQUEST_TIMEOUT_MS = 6000;
@@ -296,7 +289,6 @@ export async function queryJevState(
   for (const s of effectiveStates) {
     criteria[s.key] = s.description || s.label || s.key;
   }
-  criteria["none"] = options.noneCriteria?.trim() || DEFAULT_JEV_NONE_CRITERIA;
 
   const instructions = options.instructions?.trim() || DEFAULT_JEV_INSTRUCTIONS;
 
@@ -518,13 +510,7 @@ export async function runJevStateInference(
       return false;
     }
 
-    if (decision.confidence < JEV_CONFIDENCE_THRESHOLD) {
-      ctx.logger.debug(
-        `session-prefix: Jev confidence ${decision.confidence} below threshold ${JEV_CONFIDENCE_THRESHOLD} for ${session.id}`,
-      );
-      return false;
-    }
-
+    // 不设置信度阈值，总是采纳 Jev 给出的决策选择
     const targetKey = decision.choice.trim().toLowerCase();
 
     // 检查当前会话真实标题（唯一事实来源，绝不以 tracker 替代）

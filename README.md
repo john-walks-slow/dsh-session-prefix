@@ -9,7 +9,7 @@
 - **面向 Agent 的模型工具 `session_prefix`**：让 Agent 在工作流阶段切换时自动更新会话状态前缀；
 - **面向用户的斜杠命令 `/state`**：随时查看、切换或清除当前会话的状态前缀；
 - **标题跳过规则**：自带行首标签的标题（如 IM 桥接写入的 `Telegram · xxx`）默认不自动加/改前缀，规则可在设置页用正则自定义；
-- **Web 插件设置页（「会话状态」）**：可视化增删改状态列表（自定义 Emoji 或文本前缀、Key、名称、说明）、选择新会话默认状态、配置标题跳过规则、开关模型工具并编写自定义 `Operator instructions`；
+- **Web 插件设置页（「会话前缀」）**：可视化增删改状态列表（自定义 Emoji 或文本前缀、Key、名称、说明）、选择新会话默认状态、配置标题跳过规则、开关模型工具并编写自定义 `Operator instructions`；
 - **原生侧边栏搜索筛选**：在 DSH 侧边栏搜索框输入任意状态前缀（如 `🚧`、`✅`、`👀`），即可即时筛选出对应状态的所有会话。
 
 ## 安装
@@ -30,7 +30,7 @@ dsh plugin --profile web add github:john-walks-slow/session-prefix
 dsh plugin --profile web add link:/path/to/session-prefix
 ```
 
-安装后无需手工改配置：插件自带的 `cordis.patch.yml` 自动挂载生效，模型工具表里多出 `session_prefix`，命令表里多出 `/state`，设置页里多出「会话状态」。
+安装后无需手工改配置：插件自带的 `cordis.patch.yml` 自动挂载生效，模型工具表里多出 `session_prefix`，命令表里多出 `/state`，设置页里多出「会话前缀」。
 
 > 源码安装需要 Node ≥ 22.5，并在安装时执行构建（`tsc` + `esbuild`，产出 `dist/` 与 `lib/client.js`）。pnpm ≥ 10 需放行该构建（`pnpm approve-builds`，或在 `onlyBuiltDependencies` 中加入本包）。
 
@@ -38,7 +38,7 @@ dsh plugin --profile web add link:/path/to/session-prefix
 
 ![不同状态的会话在侧边栏中的样子](assets/screenshot-1-session-prefixes.png)
 
-![「会话状态」设置页](assets/screenshot-2-settings.png)
+![「会话前缀」设置页](assets/screenshot-2-settings.png)
 
 ## 权限与兼容
 
@@ -89,7 +89,7 @@ dsh plugin --profile web add link:/path/to/session-prefix
 
 ### 3. Web 设置面板
 
-打开 **Settings → 会话状态**：
+打开 **Settings → 会话前缀**：
 - 选择**新会话默认状态**（默认 `wip`，可选 `none` 或任意自定义状态）；
 - 选择**回合进行中状态**（`activeState`，默认 `wip`；宿主恢复执行某个会话时前缀回落到它，可选 `none` 关闭）；
 - 编辑**标题跳过规则**（`skipPattern`，正则，默认 `^\S+ · `；命中规则的标题不再自动加/改前缀，留空关闭）；

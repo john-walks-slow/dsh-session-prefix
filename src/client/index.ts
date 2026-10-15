@@ -1,5 +1,5 @@
 /**
- * 客户端半边：把「会话状态」设置页挂进 Web 设置外壳的 `settings.section` 槽位。
+ * 客户端半边：把「会话前缀」设置页挂进 Web 设置外壳的 `settings.section` 槽位。
  *
  * - `configForms.get(ENTRY_ID)` 绑定的是当前 profile entry id（`session-prefix`）；
  * - `whileServed` 保证只有该 entry 真正被组合进 profile 时才挂载设置页；
@@ -43,7 +43,7 @@ export function apply(ctx: ClientCtx): void {
             name: "settings.section",
             id: "session-prefix",
             order: 129,
-            label: () => "会话状态",
+            label: () => "会话前缀",
             inject: () => ({ scope: form }),
           },
           SessionStatePanel as unknown as React.ComponentType<Record<string, unknown>>,

@@ -1,7 +1,7 @@
 # session-prefix 项目指引
 
 单插件项目：通过会话标题前缀（默认 Emoji，可自定义）标记项目状态，仅用于帮助用户在会话列表中从视觉上区分状态，无任何其他行为副作用。
-同时提供面向 Agent 的工具 `session_prefix`、面向用户的斜杠命令 `/state`、新会话默认状态自动挂载机制（`defaultState`）、回合生命周期与 Jev 内容推断的自动状态（`activeState`、`jevEnabled`），以及一页 Web 插件设置面板（「会话状态」）。
+同时提供面向 Agent 的工具 `session_prefix`、面向用户的斜杠命令 `/state`、新会话默认状态自动挂载机制（`defaultState`）、回合生命周期与 Jev 内容推断的自动状态（`activeState`、`jevEnabled`），以及一页 Web 插件设置面板（「会话前缀」）。
 
 源码在 `src/`：
 - `index.ts`：插件入口（`inject = ["tools"]`），注册命令、监听 `turn/start` 对齐工具表并回落执行态、监听人类 `user/message` 触发 Jev 推断、监听 `turn/end`、监听 `session/title` 为新会话自动挂载默认状态前缀；
