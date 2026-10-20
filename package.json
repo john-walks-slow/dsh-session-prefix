@@ -1,7 +1,7 @@
 {
-  "name": "session-prefix",
+  "name": "dsh-session-prefix",
   "version": "0.1.0",
-  "description": "Visual session state badges for DeepSeek Harness: mark a session's project state by prefixing its title with customizable emoji or text badges (default wip 🚧, blocked ⏸️, review 👀, done ✅, plan 💡, bug 🐛), with configurable default state for new sessions, a model tool (session_prefix), a user slash command (/state), and a Web settings panel. session-prefix：用会话标题前缀（默认 Emoji，可自定义）标记项目状态，支持新会话默认状态（默认 wip，可选 none）、Agent 工具 session_prefix、用户命令 /state 与 Web 设置页（纯视觉区分，无其他行为副作用）。",
+  "description": "Auto-classify DeepSeek Harness sessions via Jev decision models or Agent tools, displayed as title emoji prefixes (wip 🚧, review 👀, done ✅). dsh-session-prefix：基于 Jev 决策模型或 Agent 工具为会话自动分类，并将任务阶段直观展示为标题前缀 Emoji。",
   "type": "module",
   "main": "./dist/index.js",
   "exports": {
@@ -44,15 +44,19 @@
   "keywords": [
     "dsh",
     "dsh-plugin",
+    "dsh-session-prefix",
     "deepseek-harness",
     "session",
     "session-prefix",
     "title",
     "prefix",
     "emoji",
+    "auto-classify",
+    "jev",
     "status",
     "会话状态",
-    "标题前缀"
+    "标题前缀",
+    "自动分类"
   ],
   "license": "MIT",
   "author": "johnnren",

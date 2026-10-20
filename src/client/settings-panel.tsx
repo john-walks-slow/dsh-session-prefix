@@ -245,7 +245,7 @@ export function SessionStatePanel(props: SessionStatePanelProps): React.ReactEle
   const saveField = async <K extends keyof SessionStateSettings>(
     field: K,
     next: SessionStateSettings[K],
-    okMessage = "已保存：对 /state 立即生效，对模型工具在下一个回合生效。",
+    okMessage = "已保存：对 /prefix 立即生效，对模型工具在下一个回合生效。",
   ): Promise<void> => {
     setBusy(true);
     setFeedback(null);
@@ -325,7 +325,7 @@ export function SessionStatePanel(props: SessionStatePanelProps): React.ReactEle
     React.createElement(
       "p",
       { className: "dss-note" },
-      "用会话标题前缀标记项目状态（纯视觉区分，无其他行为副作用）。用户与 Agent 都只按状态 key 选择（如 /state wip）。在侧边栏搜索框输入任意状态 Emoji（如 🚧、✅）即可即时筛选对应状态的会话。",
+      "用会话标题前缀标记项目状态（纯视觉区分，无其他行为副作用）。用户与 Agent 都只按状态 key 选择（如 /prefix wip）。在侧边栏搜索框输入任意状态 Emoji（如 🚧、✅）即可即时筛选对应状态的会话。",
     ),
     // 卡片 1：新会话默认状态 & 自由前缀
     React.createElement(

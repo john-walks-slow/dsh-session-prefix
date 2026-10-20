@@ -494,11 +494,11 @@ test("volatile settings hot-reload the tool on turn/start", async () => {
   host.dispose();
 });
 
-test("/state command supports viewing, switching, and clearing state by key", async () => {
+test("/prefix command supports viewing, switching, and clearing state by key", async () => {
   const host = createFakeHost({ defaultState: "wip" });
   const session = host.addLiveSession("s-cmd", { initialTitle: "编写文档" });
-  const cmd = host.commands.get("state");
-  assert.ok(cmd, "/state command should be registered");
+  const cmd = host.commands.get("prefix");
+  assert.ok(cmd, "/prefix command should be registered");
 
   const invoke = (rawInput) =>
     cmd.handler({
@@ -506,13 +506,13 @@ test("/state command supports viewing, switching, and clearing state by key", as
       agent: { session, ctx: host.ctx },
     });
 
-  // 1. /state 无参查看
+  // 1. /prefix 无参查看
   const resView = await invoke("");
   assert.equal(resView.kind, "success");
   assert.match(resView.text, /Current state: none/);
   assert.match(resView.text, /Default for new sessions: wip \(🚧 进行中\)/);
 
-  // 2. /state review 切换状态
+  // 2. /prefix review 切换状态
   const resSet = await invoke("review");
   assert.equal(resSet.kind, "success");
   assert.match(resSet.text, /Updated session state to 👀 待验收 \("👀 编写文档"\)/);
@@ -522,7 +522,7 @@ test("/state command supports viewing, switching, and clearing state by key", as
   assert.equal(resBad.kind, "error");
   assert.match(resBad.text, /unknown session state "待验收"/);
 
-  // 4. /state none 清除状态
+  // 4. /prefix none 清除状态
   const resClear = await invoke("none");
   assert.equal(resClear.kind, "success");
   assert.match(resClear.text, /Cleared session state prefix; title is now "编写文档"/);

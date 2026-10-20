@@ -1,7 +1,7 @@
 # session-prefix 项目指引
 
-单插件项目：通过会话标题前缀（默认 Emoji，可自定义）标记项目状态，仅用于帮助用户在会话列表中从视觉上区分状态，无任何其他行为副作用。
-同时提供面向 Agent 的工具 `session_prefix`、面向用户的斜杠命令 `/state`、新会话默认状态自动挂载机制（`defaultState`）、回合生命周期与 Jev 内容推断的自动状态（`activeState`、`jevEnabled`），以及一页 Web 插件设置面板（「会话前缀」）。
+单插件项目：自动为会话分类（Jev 决策模型内容推断 / Agent 工具主动标记），并把分类结果显示为标题前缀（默认 Emoji，可自定义），仅用于帮助用户在会话列表中从视觉上区分状态，无任何其他行为副作用。
+同时提供面向 Agent 的工具 `session_prefix`、面向用户的斜杠命令 `/prefix`、新会话默认状态自动挂载机制（`defaultState`）、回合生命周期与 Jev 内容推断的自动状态（`activeState`、`jevEnabled`），以及一页 Web 插件设置面板（「会话前缀」）。
 
 源码在 `src/`：
 - `index.ts`：插件入口（`inject = ["tools"]`），注册命令、监听 `turn/start` 对齐工具表并回落执行态、监听人类 `user/message` 触发 Jev 推断、监听 `turn/end`、监听 `session/title` 为新会话自动挂载默认状态前缀；
@@ -9,7 +9,7 @@
 - `state.ts`：核心领域逻辑——标题前缀解析与剥离（防叠罗汉）、基底标题兜底派生、状态应用与 `fallback`/`provider` 自动标题事件挂钩、回合开始的执行态回落（`applyTurnStartState`）；
 - `jev.ts`：Jev 决策客户端、上下文提取（`extractTurnContext`）与回合推断调度（`runJevStateInference`）；
 - `tools.ts` + `assembly.ts`：`session_prefix` 工具定义与回合边界动态同步；
-- `commands.ts`：用户命令 `/state`；
+- `commands.ts`：用户命令 `/prefix`；
 - `services.ts` / `target.ts` / `errors.ts` / `text.ts`：懒取服务、目标解析、按 `error.name` 识别错误、文本整形；
 - `src/client/**`：Web 设置面板（构建产物为 `lib/client.js`）。
 
@@ -23,7 +23,7 @@
   - `turn/start` 只做生命周期对齐——`applyTurnStartState` 把「已带状态前缀且不是执行态」的会话回落到 `activeState`（默认 wip）。这是「宿主恢复执行 ⇒ 立刻离开 ⏸️/👀/✅」的唯一可靠信号，**不要在这里做内容推断**；
   - `user/message`（`data.source.kind === "user"`）落库后才跑 Jev `start` 推断，此时上下文才包含本轮人类指令；
   - 从未打标的会话不会被回落强加前缀，`activeState: "none"` 关闭该行为。
-- **标题跳过规则（`skipPattern`）先行于所有自动行为**：标题剥离本插件状态前缀后命中该正则（默认 `^\S+ · `，覆盖 IM 桥接写入的 `Telegram · xxx`）时，`handleAutoSessionTitleEvent`、`applyInferredSessionState`（因此也含回合回落）、`runJevStateInference`（连决策请求都不发）一律直接放弃——外部标签必须留在行首，被状态前缀顶开会被对方重新补标签，叠成 `Telegram · 🚧 Telegram · xxx`。规则只挡**自动**路径：用户 `/state` 与模型工具照常写入；空规则 = 关闭（`compileSkipPattern` 对空串返回 `null`）；非法正则按关闭处理。
+- **标题跳过规则（`skipPattern`）先行于所有自动行为**：标题剥离本插件状态前缀后命中该正则（默认 `^\S+ · `，覆盖 IM 桥接写入的 `Telegram · xxx`）时，`handleAutoSessionTitleEvent`、`applyInferredSessionState`（因此也含回合回落）、`runJevStateInference`（连决策请求都不发）一律直接放弃——外部标签必须留在行首，被状态前缀顶开会被对方重新补标签，叠成 `Telegram · 🚧 Telegram · xxx`。规则只挡**自动**路径：用户 `/prefix` 与模型工具照常写入；空规则 = 关闭（`compileSkipPattern` 对空串返回 `null`）；非法正则按关闭处理。
 - **`extractTurnContext` 只认人类指令**：`user/message` 必须按 `data.source.kind === "user"` 过滤——宿主的注入消息（runtime-context / dsh-mnemon / dsh-message-datetime / tool-jobs / agent-instructions / skill-catalog）紧跟在人类消息之后落库，倒序扫描会先命中它们；两段各自保号（指令保头 ≤800 字符，上轮回复/本轮产出保尾），避免超长产出把指令挤出预算。
 - **服务懒取**：`inject` 仅声明 `["tools"]`；`sessions`、`sessionTitle`、`commands` 均通过 `ctx.get(name, false)` 懒取。
 - **客户端构建产物**：`src/client/**` 由 `scripts/build-client.mjs` 打成 `lib/client.js`（`id: "session-prefix"`），构建后必须通过 `node --check lib/client.js`。

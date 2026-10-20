@@ -1,86 +1,97 @@
-# session-prefix
+# dsh-session-prefix
 
 [中文](README.md) | English
 
-Mark DeepSeek Harness session states using customizable title prefixes (Emoji or short text badges by default) — **purely for visual distinction in the session list, with no other behavioral side effects**.
+> Automatic session classification for DeepSeek Harness via Jev decision models or Agent tools, displayed directly as title emoji prefixes.
 
-Features:
-- **Default state for new sessions**: Automatically prefixes newly titled sessions with your chosen default state (defaults to `wip` `🚧`, or choose any state / `none`), without interrupting background LLM title generation;
-- **Agent tool `session_prefix`**: Lets the agent set a session's state by key as task phases change;
-- **User command `/state`**: View, switch, or clear the current session's state prefix by key at any time;
-- **Title skip rule**: titles that already carry their own leading label (e.g. `Telegram · xxx` written by an IM bridge) are left untouched by every automatic prefixing path — the rule is a regex you can edit in Settings;
-- **Web Settings panel ("会话前缀")**: Add, edit, or remove custom states (key, prefix, label, description), pick the default state for new sessions, edit the title skip rule, toggle the model tool, and configure custom operator instructions;
-- **Sidebar search filtering**: Type any state badge (e.g. `🚧`, `✅`, `👀`) into the native DSH sidebar search box to filter sessions by state immediately.
+As conversations accumulate in DeepSeek Harness, the sidebar quickly fills up with a flat list of titles, making it difficult to spot what each session is doing. `dsh-session-prefix` classifies sessions automatically and puts status emojis right at the front of each title:
 
-## Install
+| Sidebar Badges | Settings Panel |
+| :---: | :---: |
+| ![Sidebar session prefixes](assets/screenshot-1-session-prefixes.png) | ![Settings page](assets/screenshot-2-settings.png) |
 
-```bash
-dsh plugin --profile web add session-prefix
-```
+---
 
-From GitHub (source install — runs this repository's `prepare` build):
+## Quick Install
 
 ```bash
-dsh plugin --profile web add github:john-walks-slow/session-prefix
-```
+# Online install
+dsh plugin --profile web add dsh-session-prefix
 
-From a local checkout:
+# From GitHub source
+dsh plugin --profile web add github:john-walks-slow/dsh-session-prefix
 
-```bash
+# Local checkout
 dsh plugin --profile web add link:/path/to/session-prefix
 ```
 
-No manual configuration is needed: the bundled `cordis.patch.yml` mounts automatically — the model tool table gains `session_prefix`, the command table gains `/state`, and Settings gains the "会话前缀" page.
+No manual setup required: the plugin automatically mounts with the `session_prefix` tool, the `/prefix` slash command, and the "会话前缀" settings tab.
 
-> A source install needs Node ≥ 22.5 and runs the build (`tsc` + `esbuild`, producing `dist/` and `lib/client.js`). On pnpm ≥ 10, allow that build (`pnpm approve-builds`, or add this package to `onlyBuiltDependencies`).
+---
 
-## Screenshots
+## Auto-Classification Mechanisms
 
-![Sessions in different states in the sidebar](assets/screenshot-1-session-prefixes.png)
+`dsh-session-prefix` provides two complementary ways to classify sessions automatically. Both work out of the box and can run independently or in tandem:
 
-![The "会话前缀" settings page](assets/screenshot-2-settings.png)
+### 1. Jev Decision Model Classification (Zero-Config & Seamless)
+- **Zero Prompt bloat, zero context overhead**: Leverages the lightweight TypeSafe Jev decision model for phase classification. No need to inject long prompt instructions or consume your primary model's context budget.
+- **Adaptive lifecycle awareness**:
+  - **Mid-turn responsiveness**: When you submit a new instruction, it quickly detects intent shifts (e.g., from development to testing, debugging, or planning) in combination with recent outputs.
+  - **Turn-end precision**: Once the Agent finishes its work, the session is classified based on the actual outcome (e.g., marked as ready for review `👀` or completed `✅`).
+- **Privacy-conscious & lightweight**: Only the immediate instruction and output summaries are provided to the decision model (full historical context is never transmitted). Silently skips if no API key is configured without interrupting the session.
 
-## Permissions and compatibility
+### 2. Agent Tool-Driven Classification (Proactive Badge Maintenance)
+- **Model autonomy**: Equips the Agent with the `session_prefix` tool, allowing it to advance its state badge as work progresses across multi-stage tasks.
+- **Self-explanatory criteria**: Tool descriptions clearly define when each badge applies. You can also append custom rules in Settings (e.g., "never mark as done without explicit user approval").
 
-- **No network, no local file access, no external services.** The only write is appending one `session/title` event to the target session's own log (the host's own rename path).
-- **Title skip rule (`skipPattern`)**: when a title matches the regex after this plugin's own state prefix is stripped (default `^\S+ · `, i.e. titles that already start with their own label such as `Telegram · xxx`), every **automatic** path (new-session default state, running-state fallback, Jev inference) leaves it alone — the label has to stay first, and pushing it aside makes the other system re-add it as `Telegram · 🚧 Telegram · xxx`. Explicit `/state` and tool calls are never blocked; clear the field to disable the rule.
-- Only acts on **live** sessions in the current process (your own, or one open in the GUI); it never resumes a cold session.
-- Requires a dsh host that provides the `sessionTitle` service (`@deepseek-ai/dsh-base` ships it). Without a `commands` service, `/state` is not registered and everything else keeps working.
+### 3. Lifecycle Healing & Smooth Auto-Naming
+- **Active state fallback**: When you send a follow-up message in a resting session (`⏸️` blocked / `👀` review / `✅` done), the badge immediately resets to in-progress (`🚧`), reflecting real-time activity.
+- **Seamless title provider compatibility**: New sessions automatically receive a default badge (`🚧`) without interrupting background LLM title generation. Once the title is generated, the prefix reattaches smoothly.
 
-## Default State Presets
+---
 
-| Key | Default Prefix | Label | Description |
-| :--- | :--- | :--- | :--- |
-| `wip` | `🚧` | 进行中 | In progress / coding / executing tasks (default for new sessions) |
-| `blocked` | `⏸️` | 等待/阻塞 | Waiting for user confirmation, input, or blocked |
-| `review` | `👀` | 待验收 | Ready for user review or verification |
-| `done` | `✅` | 已完成 | Task completed and delivered |
-| `plan` | `💡` | 规划/调研 | Researching, planning, or designing |
-| `bug` | `🐛` | 排障/修复 | Troubleshooting or fixing bugs |
-| `clear` / `none` | — | Clear state | Strip existing state prefix and restore the plain title |
+## Default Classification System
 
-## Usage
+| Prefix Emoji | State Key | Label | Applicable Phase |
+| :---: | :--- | :--- | :--- |
+| `🚧` | `wip` | In Progress | Coding, implementing, or running tasks (default for new sessions) |
+| `⏸️` | `blocked` | Waiting/Blocked | Awaiting user input, approvals, or stuck on blockers |
+| `👀` | `review` | Review | Implementation or plan ready for user verification |
+| `✅` | `done` | Done | All session goals delivered and completed |
+| `💡` | `plan` | Planning | Requirements discovery, system design, or discussions |
+| `🐛` | `bug` | Debugging | Troubleshooting, incident triage, or bug fixing |
+
+> **Tip**: Type an emoji (such as `🚧` or `✅`) directly into the sidebar search bar to instantly filter sessions by category.
+
+---
+
+## Controls & Customization
+
+### Slash Command `/prefix`
+Inspect, switch, or reset classifications anytime:
 
 ```text
-/state              # Inspect current session state, title, default state, and available presets
-/state wip          # Set state to "🚧 进行中"
-/state review       # Switch to "👀 待验收" (existing prefixes are stripped automatically)
-/state done         # Switch to "✅ 已完成"
-/state none         # Remove the state prefix (alias: /state clear)
+/prefix              # Show current state and list available presets
+/prefix review       # Switch to "👀 Review"
+/prefix done         # Switch to "✅ Done"
+/prefix none         # Clear prefix, restoring clean title
 ```
 
-States are selected by **key** only (`wip`, `review`, `done`, …); labels and prefixes are display-only and are not accepted as input.
+### Web Settings Page (Settings → 会话前缀)
+- **Preset Management**: Add, remove, or customize state prefixes (supports emojis or short text like `[DEV]`).
+- **Jev Configuration**: Toggle inference, configure API keys, models, endpoints, and run one-click latency probes.
+- **Title Skip Rules**: Built-in regex rule (default `^\S+ · `) automatically ignores titles with external service tags (e.g. `Telegram · xxx`), preventing badge duplication.
+- **Purely visual, zero side effects**: The only modification is renaming the title string in the session header. No data corruption, no behavioral side effects.
 
-**No configuration needed**: the tool description itself states that the agent maintains the badge on its own initiative as phases change, and each state's description is the criterion for when it applies. Extra operator instructions are only for additional preferences (for example "never set done without my confirmation").
+---
 
 ## Development
 
 ```bash
-npm run check   # TypeScript typecheck
-npm run build   # Build dist/ and lib/client.js
-npm test        # Build and run unit tests
+npm run check       # TypeScript check
+npm run build       # Build dist/ and lib/client.js
+npm test            # Run unit tests
 ```
 
-## Community
-
-- Thanks to the [LINUX DO](https://linux.do/) community for providing the discussion environment.
+## Acknowledgments
+- Thanks to the [LINUX DO](https://linux.do/) community for the discussion environment.

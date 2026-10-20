@@ -1,7 +1,7 @@
 /**
  * session-prefix — 用会话标题前缀（可自定义，默认 Emoji）标记项目状态：
  * - 面向 Agent 的工具：`session_prefix`
- * - 面向用户的命令：`/state`
+ * - 面向用户的命令：`/prefix`
  * - 新会话默认状态：监听 `session/title` 的 `fallback`/`provider` 事件自动挂载默认状态前缀，
  *   不打断后台自动标题生成，且在 LLM 生成新标题后自动衔接状态前缀
  * - 状态自动推断：回合开始回落执行态（`turn/start`，宿主已恢复执行）、本回合首条人类指令落库后
@@ -77,7 +77,7 @@ export function apply(ctx: Context, config?: SettingsConfig): () => void {
 
   const disposeCommand = registerStateCommand(ctx, tracker, config);
   if (disposeCommand === undefined) {
-    ctx.logger.info("session-prefix: no command service available; /state is not registered");
+    ctx.logger.info("session-prefix: no command service available; /prefix is not registered");
   } else {
     disposers.push(disposeCommand);
   }

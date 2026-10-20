@@ -1,8 +1,8 @@
 /**
- * 用户命令 `/state`：
- * - `/state` 或 `/state list`：查看当前会话的状态、标题、新会话默认状态及所有可用状态列表；
- * - `/state <key|label|prefix>`：将当前会话标记为对应状态（自动替换已有状态前缀）；
- * - `/state clear` 或 `/state none`：移除当前会话的状态前缀，恢复原始裸标题。
+ * 用户命令 `/prefix`：
+ * - `/prefix` 或 `/prefix list`：查看当前会话的状态、标题、新会话默认状态及所有可用状态列表；
+ * - `/prefix <key|label|prefix>`：将当前会话标记为对应状态（自动替换已有状态前缀）；
+ * - `/prefix clear` 或 `/prefix none`：移除当前会话的状态前缀，恢复原始裸标题。
  *
  * 命令走宿主 `ctx.commands`（可选服务），在宿主侧直接执行、不进模型上下文。
  */
@@ -30,9 +30,9 @@ export function registerStateCommand(
   if (commands === undefined) return undefined;
 
   return commands.register({
-    name: "state",
+    name: "prefix",
     description:
-      "Set, inspect, or clear this session's visual state prefix on its title by state key (e.g. /state wip, /state done, /state none, or /state to view).",
+      "Set, inspect, or clear this session's visual state prefix on its title by state key (e.g. /prefix wip, /prefix done, /prefix none, or /prefix to view).",
     input: { hint: "[<key> | none | list]" },
     handler(invocation): CommandResult {
       const settings = readSettings(config);
@@ -63,10 +63,10 @@ export function registerStateCommand(
             text:
               `Current state: ${currentDesc}. Title: "${info.fullTitle || "(untitled)"}". ` +
               `Default for new sessions: ${defaultDesc}. ` +
-              `Available state keys: ${catalog}. Use /state <key> to set, or /state none to remove.`,
+              `Available state keys: ${catalog}. Use /prefix <key> to set, or /prefix none to remove.`,
           };
         } catch (error) {
-          return { kind: "error", text: `state: ${messageOf(error)}` };
+          return { kind: "error", text: `prefix: ${messageOf(error)}` };
         }
       }
 
@@ -83,7 +83,7 @@ export function registerStateCommand(
           text: `Updated session state to ${outcome.prefix ?? ""} ${outcome.label ?? outcome.state} ("${outcome.title}").`,
         };
       } catch (error) {
-        return { kind: "error", text: `state: ${messageOf(error)}` };
+        return { kind: "error", text: `prefix: ${messageOf(error)}` };
       }
     },
   });
