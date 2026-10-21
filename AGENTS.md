@@ -26,7 +26,7 @@
 - **标题跳过规则（`skipPattern`）先行于所有自动行为**：标题剥离本插件状态前缀后命中该正则（默认 `^\S+ · `，覆盖 IM 桥接写入的 `Telegram · xxx`）时，`handleAutoSessionTitleEvent`、`applyInferredSessionState`（因此也含回合回落）、`runJevStateInference`（连决策请求都不发）一律直接放弃——外部标签必须留在行首，被状态前缀顶开会被对方重新补标签，叠成 `Telegram · 🚧 Telegram · xxx`。规则只挡**自动**路径：用户 `/prefix` 与模型工具照常写入；空规则 = 关闭（`compileSkipPattern` 对空串返回 `null`）；非法正则按关闭处理。
 - **`extractTurnContext` 只认人类指令**：`user/message` 必须按 `data.source.kind === "user"` 过滤——宿主的注入消息（runtime-context / dsh-mnemon / dsh-message-datetime / tool-jobs / agent-instructions / skill-catalog）紧跟在人类消息之后落库，倒序扫描会先命中它们；两段各自保号（指令保头 ≤800 字符，上轮回复/本轮产出保尾），避免超长产出把指令挤出预算。
 - **服务懒取**：`inject` 仅声明 `["tools"]`；`sessions`、`sessionTitle`、`commands` 均通过 `ctx.get(name, false)` 懒取。
-- **客户端构建产物**：`src/client/**` 由 `scripts/build-client.mjs` 打成 `lib/client.js`（`id: "session-prefix"`），构建后必须通过 `node --check lib/client.js`。
+- **客户端构建产物**：`src/client/**` 由 `scripts/build-client.mjs` 打成 `lib/client.js`（`id: "dsh-session-prefix"`），构建后必须通过 `node --check lib/client.js`。
 
 ## 常用命令
 
