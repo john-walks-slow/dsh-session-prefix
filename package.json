@@ -1,6 +1,6 @@
 {
   "name": "dsh-session-prefix",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Auto-classify DeepSeek Harness sessions via Jev decision models or Agent tools, displayed as title emoji prefixes (wip 🚧, review 👀, done ✅). dsh-session-prefix：基于 Jev 决策模型或 Agent 工具为会话自动分类，并将任务阶段直观展示为标题前缀 Emoji。",
   "type": "module",
   "main": "./dist/index.js",
